@@ -46,6 +46,7 @@
 #include <my_user.h>           // parse_user
 #include "mysql/psi/mysql_statement.h"
 #include "mysql/psi/mysql_sp.h"
+#include "sql_audit.h"
 
 #ifdef HAVE_PSI_INTERFACE
 void init_sp_psi_keys()
@@ -833,6 +834,49 @@ bool sp_head::execute(THD *thd, bool merge_da_on_success)
     /* Reset sp_rcontext::end_partial_result_set flag. */
     thd->sp_runtime_ctx->end_partial_result_set= FALSE;
 
+#ifndef EMBEDDED_LIBRARY
+    extern char *ha_inst_group_name;
+    if (err_status && thd->get_stmt_da()->is_error() && 
+        ha_inst_group_name && 0 != strlen(ha_inst_group_name) &&
+        !thd->in_sub_stmt) 
+    {
+      uint mysql_errno = thd->get_stmt_da()->mysql_errno();
+      // notify HA set retry flag
+      mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG), 
+                         0, "SetDMLRetryFlag", 15);
+      if (mysql_errno && !thd->get_stmt_da()->is_set()) 
+      {
+        // 1. prepare-execution
+        if (thd->rewritten_query().length())
+          thd->reset_rewritten_query();
+        
+        // 2. reexecute
+        err_status = i->execute(thd, &ip);
+        
+        // 3. post-execution
+        thd->m_digest = parent_digest;
+        if (i->free_list)
+          cleanup_items(i->free_list);
+        if (thd->locked_tables_mode <= LTM_LOCK_TABLES)
+        {
+          thd->user_var_events.clear();
+          thd->user_var_events_alloc= NULL;//DEBUG
+        }
+        
+        thd->cleanup_after_query();
+        free_root(&execute_mem_root, MYF(0));
+        
+        if (!thd->is_fatal_error && !thd->killed_errno() &&
+          thd->sp_runtime_ctx->handle_sql_condition(thd, &ip, i))
+        {
+          err_status= FALSE;
+        }
+        thd->sp_runtime_ctx->end_partial_result_set= FALSE;
+      }
+      mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG), 
+                         0, "ResetDMLRetryFlag", 17);
+    }
+#endif
   } while (!err_status && !thd->killed && !thd->is_fatal_error);
 
 #if defined(ENABLED_PROFILING)

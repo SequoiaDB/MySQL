@@ -1197,6 +1197,59 @@ void reset_statement_timer(THD *thd)
   thd->timer= NULL;
 }
 
+void reset_execution_ctx(THD *thd, const char *beginning_of_next_stmt, 
+                         ulong length, enum enum_server_command command) 
+{
+  /* Finalize server status flags after executing a statement. */
+  thd->update_server_status();
+  // thd->send_statement_status();
+  query_cache.end_of_result(thd);
+
+  log_slow_statement(thd);
+  /* PSI end */
+  MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
+  thd->m_statement_psi= NULL;
+  thd->m_digest= NULL;
+
+  /* DTRACE end */
+  if (MYSQL_QUERY_DONE_ENABLED())
+  {
+    MYSQL_QUERY_DONE(thd->is_error());
+  }
+
+  /* SHOW PROFILE end */
+#if defined(ENABLED_PROFILING)
+  thd->profiling.finish_current_query();
+#endif
+
+/* SHOW PROFILE begin */
+#if defined(ENABLED_PROFILING)
+  thd->profiling.start_new_query("continuing");
+  thd->profiling.set_query_source(beginning_of_next_stmt, length);
+#endif
+
+  /* DTRACE begin */
+  MYSQL_QUERY_START(const_cast<char*>(beginning_of_next_stmt),
+                    thd->thread_id(),
+                    (char *) (thd->db().str ? thd->db().str : ""),
+                    (char *) thd->security_context()->priv_user().str,
+                    (char *) thd->security_context()->host_or_ip().str);
+
+  /* PSI begin */
+  thd->m_digest= & thd->m_digest_state;
+  thd->m_digest->reset(thd->m_token_array, max_digest_length);
+
+  thd->m_statement_psi= MYSQL_START_STATEMENT(&thd->m_statement_state,
+                                      com_statement_info[command].m_key,
+                                      thd->db().str, thd->db().length,
+                                      thd->charset(), NULL);
+  THD_STAGE_INFO(thd, stage_starting);
+
+  thd->set_query(beginning_of_next_stmt, length);
+  thd->set_query_id(next_query_id());
+  thd->status_var.questions++;
+  thd->set_time();
+}
 
 /**
   Perform one connection-level (COM_XXXX) command.
@@ -1566,6 +1619,38 @@ original_step:
 
     mysql_parse(thd, &parser_state);
 
+#ifndef EMBEDDED_LIBRARY
+    {
+      extern char *ha_inst_group_name;
+      if (thd->get_stmt_da()->is_error() && ha_inst_group_name && 
+          0 != strlen(ha_inst_group_name) &&
+          0 == thd->lex->sroutines_list.elements) 
+      {
+        uint mysql_errno = thd->get_stmt_da()->mysql_errno();
+        // notify HA set retry flag
+        mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG), 
+                           0, "SetDMLRetryFlag", 15);
+        if (mysql_errno && !thd->get_stmt_da()->is_set()) 
+        {
+          const char *beginning_of_next_stmt= thd->query().str;
+          size_t length= static_cast<size_t>(packet_end - beginning_of_next_stmt);
+          reset_execution_ctx(thd, beginning_of_next_stmt, length, command);
+          parser_state.reset(beginning_of_next_stmt, length);
+          mysql_parse(thd, &parser_state);
+        }
+        // reset retry flag
+        mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG), 
+                           0, "ResetDMLRetryFlag", 17);
+      }
+      // clear checked objects cache
+      if (ha_inst_group_name && 0 != strlen(ha_inst_group_name)) 
+      {
+        mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG), 
+                           0, "ResetCheckedObjects", 19);
+      }
+    }
+#endif
+    
     while (!thd->killed && (parser_state.m_lip.found_semicolon != NULL) &&
            ! thd->is_error())
     {
@@ -1664,6 +1749,37 @@ original_step:
       parser_state.reset(beginning_of_next_stmt, length);
       /* TODO: set thd->lex->sql_command to SQLCOM_END here */
       mysql_parse(thd, &parser_state);
+
+#ifndef EMBEDDED_LIBRARY
+      // sequoiadb-sql DML retry 
+      {
+        extern char *ha_inst_group_name;
+        if (thd->get_stmt_da()->is_error() && ha_inst_group_name && 
+            0 != strlen(ha_inst_group_name) &&
+            0 == thd->lex->sroutines_list.elements) 
+        {
+          uint mysql_errno = thd->get_stmt_da()->mysql_errno();
+          // notify HA set retry flag
+          mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG), 
+                             0, "SetDMLRetryFlag", 15);
+          if (mysql_errno && !thd->get_stmt_da()->is_set()) 
+          {
+            reset_execution_ctx(thd, beginning_of_next_stmt, length, command);
+            parser_state.reset(beginning_of_next_stmt, length);
+            mysql_parse(thd, &parser_state);
+          }
+          // reset retry flag
+          mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG), 
+                             0, "ResetDMLRetryFlag", 17);
+        }
+        // clear checked objects cache
+        if (ha_inst_group_name && 0 != strlen(ha_inst_group_name)) 
+        {
+          mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG), 
+                             0, "ResetCheckedObjects", 19);
+        }
+      }
+#endif
     }
 
     /* Need to set error to true for graceful shutdown */
@@ -4478,8 +4594,9 @@ end_with_restore_list:
         which doesn't any check routine privileges,
         so no routine privilege record  will insert into mysql.procs_priv.
       */
-
-      if (thd->slave_thread)
+      extern char *ha_inst_group_name;
+      bool ha_is_on = (ha_inst_group_name && 0 != strlen(ha_inst_group_name));
+      if (thd->slave_thread || ha_is_on)
       {
         LEX_CSTRING current_user;
         LEX_CSTRING current_host;
@@ -4521,7 +4638,7 @@ end_with_restore_list:
       */ 
       if (restore_backup_context)
       {
-        assert(thd->slave_thread == 1);
+        assert(thd->slave_thread == 1|| ha_is_on);
         thd->security_context()->restore_security_context(thd, backup);
       }
 #endif
@@ -5094,7 +5211,15 @@ finish:
       thd->reset_query_for_display();
     }
   }
-
+#ifndef EMBEDDED_LIBRARY
+  else {
+    mysql_audit_notify(thd,
+                      first_level ? MYSQL_AUDIT_QUERY_STATUS_END :
+                                    MYSQL_AUDIT_QUERY_NESTED_STATUS_END,
+                      first_level ? "MYSQL_AUDIT_QUERY_STATUS_END" :
+                                    "MYSQL_AUDIT_QUERY_NESTED_STATUS_END");
+  }
+#endif /* !EMBEDDED_LIBRARY */
   lex->unit->cleanup(true);
   /* Free tables */
   THD_STAGE_INFO(thd, stage_closing_tables);
@@ -5812,6 +5937,11 @@ bool add_field_to_list(THD *thd, LEX_STRING *field_name, enum_field_types type,
   Create_field *new_field;
   LEX  *lex= thd->lex;
   uint8 datetime_precision= decimals ? atoi(decimals) : 0;
+  user_var_entry *entry= NULL;
+  extern char *ha_inst_group_name;
+  bool default_is_set= (default_value != NULL);
+  const char *USE_STRICT_CREATE_MODE_VAR="SDB_USER_DEFINE_VAR_USE_STRICT_CREATE_MODE";
+  const char *USE_STRICT_CREATE_MODE_FLAG="SEQUOIADB_FLAG_USE_STRICT_CREATE_MODE";
   DBUG_ENTER("add_field_to_list");
 
   LEX_CSTRING field_name_cstr= {field_name->str, field_name->length};
@@ -5891,6 +6021,19 @@ bool add_field_to_list(THD *thd, LEX_STRING *field_name, enum_field_types type,
                       default_value, on_update_value, comment, change,
                       interval_list, cs, uint_geom_type, gcol_info))
     DBUG_RETURN(1);
+
+  entry= (user_var_entry*) my_hash_search(&thd->user_vars,
+                                          (uchar*) USE_STRICT_CREATE_MODE_VAR,
+                                          strlen(USE_STRICT_CREATE_MODE_VAR));
+  if (ha_inst_group_name && 0 != strlen(ha_inst_group_name) && !default_is_set &&
+      !(type_modifier & (NOT_NULL_FLAG | EXPLICIT_NULL_FLAG)) &&
+      !(type_modifier & AUTO_INCREMENT_FLAG) && entry &&
+      0 == strcmp(entry->ptr(), USE_STRICT_CREATE_MODE_FLAG)) {
+    if (thd->variables.explicit_defaults_for_timestamp ||
+        !is_timestamp_type(type)) {
+      new_field->flags|= NO_DEFAULT_VALUE_FLAG;
+    }
+  }
 
   lex->alter_info.create_list.push_back(new_field);
   lex->last_field=new_field;
