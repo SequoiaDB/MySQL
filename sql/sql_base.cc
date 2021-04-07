@@ -5873,6 +5873,19 @@ restart:
          (thd->locked_tables_mode <= LTM_LOCK_TABLES &&
           *sroutine_to_open))
   {
+#ifndef EMBEDDED_LIBRARY
+    // check version after open tables, before lock tables
+    // for statement including routines
+    extern char *ha_inst_group_name;
+    if (thd->lex->sroutines_list.first != NULL &&
+        SQLCOM_CALL != thd->lex->sql_command &&
+        !thd->in_sub_stmt &&
+        ha_inst_group_name && 0 != strlen(ha_inst_group_name))
+    {
+       mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG),
+                          0, "PreCheckSQLObjects", 18);
+    }
+#endif
     /*
       For every table in the list of tables to open, try to find or open
       a table.

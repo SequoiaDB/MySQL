@@ -44,6 +44,7 @@
 
 #include "trigger.h"                  // Trigger
 #include "table_trigger_dispatcher.h" // Table_trigger_dispatcher
+#include "sql_audit.h"
 
 
 class Cmp_splocal_locations :
@@ -380,6 +381,25 @@ bool sp_lex_instr::reset_lex_and_exec_core(THD *thd,
 
   if (!error)
   {
+#ifndef EMBEDDED_LIBRARY
+    // notify HA check state for routines, 
+    // handle sql 'set m:= (select c1, c2,... cn from t1)' in function or procedure
+    {
+      extern char *ha_inst_group_name;
+      Sroutine_hash_entry *sroutine_to_open = thd->lex->sroutines_list.first;
+      enum enum_sql_command sql_cmd = thd->lex->sql_command;
+      if (sroutine_to_open != NULL && !thd->in_sub_stmt &&
+         (SQLCOM_END == sql_cmd || SQLCOM_SET_OPTION == sql_cmd) &&
+          ha_inst_group_name && 0 != strlen(ha_inst_group_name))
+      {
+        enum enum_sql_command saved_cmd = thd->lex->sql_command;
+        thd->lex->sql_command = SQLCOM_SET_OPTION;
+        mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG), 
+                           0, "PreCheckSQLObjects", 18);
+        thd->lex->sql_command = saved_cmd;
+      }
+    }
+#endif
     if (open_tables)
     {
       // todo: break this block out into a separate function.
@@ -452,6 +472,19 @@ bool sp_lex_instr::reset_lex_and_exec_core(THD *thd,
       error= exec_core(thd, nextp);
       DBUG_PRINT("info",("exec_core returned: %d", error));
     }
+
+#ifndef EMBEDDED_LIBRARY
+    // notify HA store lex for current statement
+    {
+      extern char *ha_inst_group_name;
+      if (error && thd->get_stmt_da()->is_error() && !thd->in_sub_stmt &&
+          ha_inst_group_name && 0 != strlen(ha_inst_group_name))
+      {
+        mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG), 
+                           0, "SaveInstrLex", 12);
+      }
+    }
+#endif
   }
 
   // Pop SP_instr_error_handler error handler.

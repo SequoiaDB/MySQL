@@ -2690,6 +2690,20 @@ bool sql_exchange::escaped_given(void)
 bool Query_result_send::send_result_set_metadata(List<Item> &list, uint flags)
 {
   bool res;
+
+  // do not send send_result_metadata once again for DML
+  extern char *ha_inst_group_name;
+  if (ha_inst_group_name && 0 != strlen(ha_inst_group_name))
+  {
+    extern thread_local_key_t ha_sql_stmt_info_key;
+    bool *is_ha_result_set_started = (bool*)my_get_thread_local(ha_sql_stmt_info_key);
+    if (is_ha_result_set_started && (*is_ha_result_set_started)) 
+    {
+      *is_ha_result_set_started = false;
+      return false;
+    }
+  }
+
   if (!(res= thd->send_result_metadata(&list, flags)))
     is_result_set_started= 1;
   return res;
