@@ -6086,3 +6086,11 @@ static Sys_var_mybool Sys_replication_sender_observe_commit_only(
        NOT_IN_BINLOG,
        ON_CHECK(0),
        ON_UPDATE(handle_sender_observe_commit_change));
+
+const bool sdb_sql_pushdown = false;
+
+static Sys_var_mybool Sys_sequoiadb_push_down_join(
+       "sequoiadb_sql_push_down",
+       "Whether push down join query or not.",
+       SESSION_VAR(sdb_sql_pushdown), CMD_LINE(OPT_ARG),
+       DEFAULT(FALSE));

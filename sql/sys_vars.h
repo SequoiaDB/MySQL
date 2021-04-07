@@ -3020,5 +3020,7 @@ err:
   }
 };
 
+extern const bool sdb_sql_pushdown;
+
 #endif /* SYS_VARS_H_INCLUDED */
 
