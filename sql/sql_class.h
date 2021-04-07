@@ -580,6 +580,7 @@ typedef struct system_variables
     'COLUMN_TYPE' field.
   */
   my_bool show_old_temporals;
+  my_bool sdb_sql_pushdown;
 } SV;
 
 
@@ -4437,6 +4438,10 @@ public:
   void set_query(const LEX_CSTRING& query_arg);
   void reset_query() {
     set_query(LEX_CSTRING());
+    DBUG_ASSERT(this == current_thd);
+    mysql_mutex_lock(&LOCK_thd_query);
+    sdb_sql_push_down_query_string = LEX_CSTRING();
+    mysql_mutex_unlock(&LOCK_thd_query);
   }
 
   /**
@@ -4797,6 +4802,18 @@ private:
     aggregates THD.
   */
   bool is_a_srv_session_thd;
+
+public:
+  /* String hold to push down to sequoiadb coord to exec. */
+  LEX_CSTRING sdb_sql_push_down_query_string;
+  enum sdb_sql_push_down_exec_steps {
+    NON_PUSH_DOWN = 0,
+    PREPARE_STEP = 1,
+    EXEC_STEP = 2,
+  };
+  /* Flag of the real push down join exec finised. All the other result need to
+     be ignored but the real result of join exec. */
+  sdb_sql_push_down_exec_steps sdb_sql_exec_step;
 };
 
 /**
