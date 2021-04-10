@@ -4810,6 +4810,8 @@ public:
     NON_PUSH_DOWN = 0,
     PREPARE_STEP = 1,
     EXEC_STEP = 2,
+    ERROR_OCCUR = 3,
+    DONE = 4,
   };
   /* Flag of the real push down join exec finised. All the other result need to
      be ignored but the real result of join exec. */

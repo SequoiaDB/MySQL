@@ -1532,7 +1532,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
                                      thd->query().length);
 
     DBUG_PRINT("query",("%-.4096s", thd->query().str));
-    thd->sdb_sql_exec_step = thd->NON_PUSH_DOWN;
+    thd->sdb_sql_exec_step = THD::NON_PUSH_DOWN;
 
 #if defined(ENABLED_PROFILING)
     thd->profiling.set_query_source(thd->query().str, thd->query().length);
@@ -1542,6 +1542,8 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
     char *concat_join_push_down_sql = NULL;
     bool add_multi_query_flag = false;
     push_type type = NO_PUSH;
+    uint original_sql_len = thd->query().length;
+    const char *original_sql = thd->query().str;
 
     if(thd->variables.sdb_sql_pushdown) {
       const int LEN_OF_CONCAT_STR = 700;
@@ -1602,7 +1604,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       mysql_mutex_unlock(&thd->LOCK_thd_query);
       thd->set_query(concat_lex_str);
       packet_end= thd->query().str + thd->query().length;
-      thd->sdb_sql_exec_step = thd->PREPARE_STEP;
+      thd->sdb_sql_exec_step = THD::PREPARE_STEP;
       if (!thd->get_protocol_classic()->has_client_capability(CLIENT_MULTI_STATEMENTS)) {
         thd->get_protocol_classic()->add_client_capability(
           CLIENT_MULTI_STATEMENTS);
@@ -1617,6 +1619,12 @@ original_step:
 
     parser_state.m_input.m_has_digest = true;
 
+    uint err_no = 0;
+    char err_text[MYSQL_ERRMSG_SIZE] = {0};
+    char m_ret_sqlstate[SQLSTATE_LENGTH+1] = {0};
+    char *restore_sql = NULL;
+    static const int len_of_restore_sql = 150;
+    Diagnostics_area *da= thd->get_stmt_da();
     mysql_parse(thd, &parser_state);
 
 #ifndef EMBEDDED_LIBRARY
@@ -1650,7 +1658,7 @@ original_step:
       }
     }
 #endif
-    
+
     while (!thd->killed && (parser_state.m_lip.found_semicolon != NULL) &&
            ! thd->is_error())
     {
@@ -1665,15 +1673,11 @@ original_step:
       if (thd->variables.sdb_sql_pushdown) {
         /* If push down hash join sql to sdb, then only send the result of 
            join sql exec.*/
-        if(thd->PREPARE_STEP == thd->sdb_sql_exec_step) {
-        } else if(thd->EXEC_STEP == thd->sdb_sql_exec_step) {
+        if(THD::PREPARE_STEP == thd->sdb_sql_exec_step) {
+        } else if(THD::EXEC_STEP == thd->sdb_sql_exec_step) {
           thd->send_statement_status();
-          if (add_multi_query_flag) {
-            thd->get_protocol_classic()->remove_client_capability(
-            CLIENT_MULTI_STATEMENTS);
-          }
           /*Only send the execute result to client*/
-          thd->sdb_sql_exec_step = thd->NON_PUSH_DOWN;
+          thd->sdb_sql_exec_step = THD::DONE;
         }
       } else {
         thd->send_statement_status();
@@ -1682,11 +1686,16 @@ original_step:
       query_cache.end_of_result(thd);
 
 #ifndef EMBEDDED_LIBRARY
-      mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_STATUS),
-                         thd->get_stmt_da()->is_error() ?
-                         thd->get_stmt_da()->mysql_errno() : 0,
-                         command_name[command].str,
-                         command_name[command].length);
+       /* SQL push down only audit sql at last time.*/
+       if (!thd->variables.sdb_sql_pushdown ||
+           THD::NON_PUSH_DOWN == thd->sdb_sql_exec_step ||
+           THD::DONE == thd->sdb_sql_exec_step) {
+          mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_STATUS),
+                             thd->get_stmt_da()->is_error() ?
+                             thd->get_stmt_da()->mysql_errno() : 0,
+                             command_name[command].str,
+                             command_name[command].length);
+      }
 #endif
 
       size_t length= static_cast<size_t>(packet_end - beginning_of_next_stmt);
@@ -1780,6 +1789,51 @@ original_step:
         }
       }
 #endif
+      if (!thd->killed && thd->is_error() &&
+          (THD::PREPARE_STEP == thd->sdb_sql_exec_step ||
+           THD::EXEC_STEP == thd->sdb_sql_exec_step)) {
+        err_text[0] = '\0';
+        err_no = da->mysql_errno();
+        snprintf(err_text, MYSQL_ERRMSG_SIZE, "%s", da->message_text());
+        snprintf(m_ret_sqlstate, SQLSTATE_LENGTH+1, "%s", da->returned_sqlstate());
+        da->reset_diagnostics_area();
+        restore_sql = (char*)thd->alloc(len_of_restore_sql);
+        if (NULL == restore_sql) {
+          my_error(ER_OUT_OF_RESOURCES, MYF(0));
+          break;
+        }
+        snprintf(restore_sql, len_of_restore_sql,
+          "set @@sequoiadb_execute_only_in_mysql = @`sdb#pd#exec#in#only#mysql`;"
+          "set @@spark_execute_only_in_mysql = @`spk#pd#exec#in#only#mysql`;");
+        LEX_CSTRING sql_res_lex_str = {restore_sql, strlen(restore_sql)};
+        thd->set_query(sql_res_lex_str);
+        packet_end= thd->query().str + thd->query().length;
+        parser_state.reset(thd->query().str, thd->query().length);
+        thd->sdb_sql_exec_step = THD::ERROR_OCCUR;
+        parser_state.m_lip.found_semicolon = thd->query().str;
+        continue;
+      }
+    }
+
+    if (THD::ERROR_OCCUR == thd->sdb_sql_exec_step) {
+      da->reset_diagnostics_area();
+      da->set_error_status(err_no, err_text, m_ret_sqlstate);
+      thd->sdb_sql_exec_step = THD::DONE;
+    }
+
+#ifndef EMBEDDED_LIBRARY
+    if (thd->variables.sdb_sql_pushdown && THD::DONE == thd->sdb_sql_exec_step) {
+      String ogl_sql = String(original_sql, original_sql_len, &my_charset_utf8mb4_bin);
+      thd->swap_rewritten_query(ogl_sql);
+    }
+#endif
+
+    /* silence a warning about unused varaibles. */
+    (void)original_sql_len;
+    (void)original_sql;
+
+    if (add_multi_query_flag) {
+      thd->get_protocol_classic()->remove_client_capability(CLIENT_MULTI_STATEMENTS);
     }
 
     /* Need to set error to true for graceful shutdown */
