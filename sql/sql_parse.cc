@@ -5805,8 +5805,19 @@ void mysql_parse(THD *thd, Parser_state *parser_state)
                                          thd->rewritten_query().length());
         else
         {
+
+          extern char *ha_inst_group_name;
+          if (found_semicolon && ha_inst_group_name && '\0' != ha_inst_group_name[0])
+          {
+            thd->set_query(thd->query().str, qlen);
+          }
           query_logger.general_log_write(thd, COM_QUERY,
                                          thd->query().str, qlen);
+          // recover original query string
+          if (found_semicolon && ha_inst_group_name && '\0' != ha_inst_group_name[0])
+          {
+            thd->set_query(thd->query().str, thd->query().length);
+          }
         }
       }
     }
