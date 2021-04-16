@@ -1453,8 +1453,11 @@ bool Query_logger::general_log_write(THD *thd, enum_server_command command,
 {
 #ifndef EMBEDDED_LIBRARY
   /* Send a general log message to the audit API. */
+  // if 'CLIENT_MULTI_STATEMENTS' flag is set, query_length maybe the length
+  // of the first statement
   mysql_audit_general_log(thd, command_name[(uint) command].str,
-                          command_name[(uint) command].length);
+                          command_name[(uint) command].length,
+                          query_length < strlen(query) ? query_length : 0);
 #endif
 
   /*

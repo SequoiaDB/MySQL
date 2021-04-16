@@ -79,26 +79,29 @@ void mysql_audit_release(THD *thd);
   @param[in] error_code       Error code
   @param[in] msg              Message
   @param[in] msg_len          Message length.
+  @param[in] qlen             Real query length, use string length if it's 0.
 
   @result Value returned is not taken into consideration by the server.
 */
 int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
                        const char* subclass_name,
-                       int error_code, const char *msg, size_t msg_len);
+                       int error_code, const char *msg, size_t msg_len,
+                       size_t qlen= 0);
 /**
   Call audit plugins of GENERAL LOG audit class.
 
   @param[in] thd    Current thread data.
   @param[in] cmd    Command text.
   @param[in] cmdlen Command text length.
+  @param[in] qlen   Real query length, use string length if it's 0.
 
   @result Value returned is not taken into consideration by the server.
 */
 inline static
-int mysql_audit_general_log(THD *thd, const char *cmd, size_t cmdlen)
+int mysql_audit_general_log(THD *thd, const char *cmd, size_t cmdlen, size_t qlen= 0)
 {
   return mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG),
-                            0, cmd, cmdlen);
+                            0, cmd, cmdlen, qlen);
 }
 
 /**
