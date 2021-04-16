@@ -429,7 +429,7 @@ private:
 
 int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
                        const char* subclass_name,
-                       int error_code, const char *msg, size_t msg_len)
+                       int error_code, const char *msg, size_t msg_len, size_t qlen)
 {
   mysql_event_general event;
   char user_buff[MAX_USER_HOST_SIZE];
@@ -456,6 +456,11 @@ int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
 
   thd_get_audit_query(thd, &event.general_query,
                       (const charset_info_st**)&event.general_charset);
+
+  // if current query has not been rewritten and real query length is set,
+  // set event.general_query.length to real query length
+  if (!thd->rewritten_query().length() && qlen && qlen < event.general_query.length)
+    event.general_query.length= qlen;
 
   event.general_time= thd->start_time.tv_sec;
 
