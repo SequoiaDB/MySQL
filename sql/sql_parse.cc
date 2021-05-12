@@ -1656,6 +1656,7 @@ original_step:
         mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG), 
                            0, "ResetCheckedObjects", 19);
       }
+      thd->is_result_set_started= FALSE;
     }
 #endif
 
@@ -1787,6 +1788,7 @@ original_step:
           mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG), 
                              0, "ResetCheckedObjects", 19);
         }
+        thd->is_result_set_started= FALSE;
       }
 #endif
       if (!thd->killed && thd->is_error() &&
