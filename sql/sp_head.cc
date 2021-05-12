@@ -876,6 +876,7 @@ bool sp_head::execute(THD *thd, bool merge_da_on_success)
       mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG), 
                          0, "ResetDMLRetryFlag", 17);
     }
+    thd->is_result_set_started= FALSE;
 #endif
   } while (!err_status && !thd->killed && !thd->is_fatal_error);
 

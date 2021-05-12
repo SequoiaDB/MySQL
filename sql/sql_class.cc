@@ -1128,7 +1128,8 @@ THD::THD(bool enable_plugins)
    m_query_rewrite_plugin_da_ptr(&m_query_rewrite_plugin_da),
    m_stmt_da(&main_da),
    duplicate_slave_id(false),
-   is_a_srv_session_thd(false)
+   is_a_srv_session_thd(false),
+   is_result_set_started(FALSE)
 {
   main_lex.reset();
   set_psi(NULL);
@@ -2692,20 +2693,13 @@ bool Query_result_send::send_result_set_metadata(List<Item> &list, uint flags)
   bool res;
 
   // do not send send_result_metadata once again for DML
-  extern char *ha_inst_group_name;
-  if (ha_inst_group_name && 0 != strlen(ha_inst_group_name))
-  {
-    extern thread_local_key_t ha_sql_stmt_info_key;
-    bool *is_ha_result_set_started = (bool*)my_get_thread_local(ha_sql_stmt_info_key);
-    if (is_ha_result_set_started && (*is_ha_result_set_started)) 
-    {
-      *is_ha_result_set_started = false;
-      return false;
-    }
-  }
+  if (thd->is_result_set_started)
+    return FALSE;
 
   if (!(res= thd->send_result_metadata(&list, flags)))
     is_result_set_started= 1;
+
+  thd->is_result_set_started= is_result_set_started;
   return res;
 }
 
