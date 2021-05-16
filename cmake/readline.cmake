@@ -65,7 +65,7 @@ MACRO (CHECK_CURSES)
     NO_CMAKE_ENVIRONMENT_PATH
     NO_SYSTEM_ENVIRONMENT_PATH
   )
-  IF(NOT CURSES_FOUND)
+  IF(CURSES_LIBRARY STREQUAL "CURSES_LIBRARY-NOTFOUND")
     MESSAGE(FATAL_ERROR
        "You need to set WITH_CURSES. This"
        " variable needs to point to curses library.")
