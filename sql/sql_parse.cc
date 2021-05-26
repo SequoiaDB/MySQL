@@ -1394,6 +1394,10 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
   }
 #endif /* !EMBEDDED_LIBRARY */
 
+  if (thd->is_result_set_started)
+  {
+    thd->is_result_set_started= false;
+  }
   switch (command) {
   case COM_INIT_DB:
   {
