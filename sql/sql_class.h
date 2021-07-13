@@ -4438,7 +4438,7 @@ public:
   void set_query(const LEX_CSTRING& query_arg);
   void reset_query() {
     set_query(LEX_CSTRING());
-    DBUG_ASSERT(this == current_thd);
+    assert(this == current_thd);
     mysql_mutex_lock(&LOCK_thd_query);
     sdb_sql_push_down_query_string = LEX_CSTRING();
     mysql_mutex_unlock(&LOCK_thd_query);
