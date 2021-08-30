@@ -325,6 +325,10 @@ MACRO(EXTRACT_LINK_LIBRARIES target var)
           SET(${var} "${${var}} ${lib} ")
         ELSEIF (lib MATCHES "^\\-L")
           SET(${var} "${${var}} ${lib} ")
+        ELSEIF(lib STREQUAL "-pthread")
+          # After GCC 4.5.2, '-lpthread' has been replaced with '-pthread',
+          # so there is no need to add '-l' prefix here, just return.
+          SET(${var} "${${var}} ${lib} ")
         ELSEIF(lib MATCHES "^/")
           # Full path, convert to just filename, strip "lib" prefix and extension
           GET_FILENAME_COMPONENT(lib "${lib}" NAME_WE)
