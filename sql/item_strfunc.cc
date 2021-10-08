@@ -57,6 +57,7 @@
 #include "password.h"                // my_make_scrambled_password
 #include "sql_class.h"               // THD
 #include "strfunc.h"                 // hexchar_to_int
+#include "openssl/des.h"
 
 C_MODE_START
 #include "../mysys/my_static.h"			// For soundex_map
@@ -2232,7 +2233,7 @@ String *Item_func_encrypt::val_str(String *str)
     salt_ptr= salt_str->c_ptr_safe();
   }
   mysql_mutex_lock(&LOCK_crypt);
-  char *tmp= crypt(res->c_ptr_safe(),salt_ptr);
+  char *tmp= DES_crypt(res->c_ptr_safe(),salt_ptr);
   if (!tmp)
   {
     mysql_mutex_unlock(&LOCK_crypt);
