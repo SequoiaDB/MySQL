@@ -6088,7 +6088,12 @@ bool add_field_to_list(THD *thd, LEX_STRING *field_name, enum_field_types type,
       0 == strcmp(entry->ptr(), USE_STRICT_CREATE_MODE_FLAG)) {
     if (thd->variables.explicit_defaults_for_timestamp ||
         !is_timestamp_type(type)) {
-      new_field->flags|= NO_DEFAULT_VALUE_FLAG;
+      if (MYSQL_TYPE_BLOB != type &&
+          MYSQL_TYPE_TINY_BLOB != type &&
+          MYSQL_TYPE_LONG_BLOB != type &&
+          MYSQL_TYPE_MEDIUM_BLOB != type) {
+        new_field->flags|= NO_DEFAULT_VALUE_FLAG;
+      }
     }
   }
 
