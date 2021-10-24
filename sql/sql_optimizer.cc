@@ -3294,6 +3294,8 @@ static bool setup_join_buffering(JOIN_TAB *tab, JOIN *join, uint no_jbuf_after)
 
     if (tab->table()->covering_keys.is_set(tab->ref().key))
       join_cache_flags|= HA_MRR_INDEX_ONLY;
+
+    tab->table()->file->key_parts = tab->ref().key_parts;
     rows= tab->table()->file->multi_range_read_info(tab->ref().key, 10, 20,
                                                   &bufsz,
                                                   &join_cache_flags, &cost);

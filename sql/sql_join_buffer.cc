@@ -2695,6 +2695,7 @@ JOIN_CACHE_BKA::init_join_matching_records(RANGE_SEQ_IF *seq_funcs, uint ranges)
       return error;
     }
   }
+  file->is_join_bka = true;
   return
     file->multi_range_read_init(seq_funcs, (void*) this, ranges,
                                 mrr_mode, &mrr_buff);

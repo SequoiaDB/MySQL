@@ -2273,6 +2273,9 @@ public:
   */
   PSI_table *m_psi;
 
+  bool is_join_bka;
+  uint key_parts;
+
 private:
   /** Internal state of the batch instrumentation. */
   enum batch_mode_t
@@ -2375,6 +2378,8 @@ public:
     m_psi_locker(NULL),
     m_lock_type(F_UNLCK), ha_share(NULL), m_update_generated_read_fields(false)
     {
+      is_join_bka = false;
+      key_parts = 0;
       DBUG_PRINT("info",
                  ("handler created F_UNLCK %d F_RDLCK %d F_WRLCK %d",
                   F_UNLCK, F_RDLCK, F_WRLCK));
