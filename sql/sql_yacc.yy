@@ -8216,6 +8216,12 @@ alter_list_item:
             Lex->alter_info.flags|= Alter_info::ALTER_ADD_INDEX;
           }
         | add_column '(' create_field_list ')'
+          {
+            LEX *lex=Lex;
+            lex->alter_info.flags|= Alter_info::ALTER_ADD_COLUMN;
+            if (!lex->alter_info.key_list.is_empty())
+                lex->alter_info.flags|= Alter_info::ALTER_ADD_INDEX;
+          }
         | CHANGE opt_column field_ident
           {
             LEX *lex=Lex;
