@@ -447,10 +447,11 @@ bool String::copy(const char *str, size_t arg_length,
     return copy_aligned(str, arg_length, offset, to_cs);
   }
   size_t new_length= to_cs->mbmaxlen*arg_length;
-  if (alloc(new_length))
+  if (alloc(new_length + 1))
     return true;
   m_length= copy_and_convert(m_ptr, new_length, to_cs,
                              str, arg_length, from_cs, errors);
+  m_ptr[m_length]= 0;
   m_charset= to_cs;
   return false;
 }
