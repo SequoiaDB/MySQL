@@ -427,11 +427,11 @@ uint quick_range_seq_next(range_seq_t rseq, KEY_MULTI_RANGE *range);
 */
 class QUICK_RANGE_SELECT : public QUICK_SELECT_I
 {
-protected:
-  handler *file;
+public:
   /* Members to deal with case when this quick select is a ROR-merged scan */
   bool in_ror_merged_scan;
-
+protected:
+  handler *file;
   // TODO: pre-allocate space to avoid malloc/free for small number of columns.
   MY_BITMAP column_bitmap;
 
@@ -455,6 +455,9 @@ protected:
                                           uint n_ranges, uint flags);
   friend class QUICK_SELECT_DESC;
   friend class QUICK_INDEX_MERGE_SELECT;
+  friend class QUICK_SDB_INDEX_SORT_SELECT;
+  friend class QUICK_SDB_INDEX_MERGE_SELECT;
+  friend class QUICK_SDB_ROR_UNION_SELECT;
   friend class QUICK_ROR_INTERSECT_SELECT;
   friend class QUICK_GROUP_MIN_MAX_SELECT;
 
@@ -1042,5 +1045,73 @@ bool prune_partitions(THD *thd, TABLE *table, Item *pprune_cond);
 void store_key_image_to_rec(Field *field, uchar *ptr, uint len);
 
 extern String null_string;
+
+
+// SequoiaDB optimizer index merge
+class QUICK_SDB_INDEX_SORT_SELECT : public QUICK_SELECT_I {
+public:
+  QUICK_SDB_INDEX_SORT_SELECT(THD *thd, TABLE *table);
+  ~QUICK_SDB_INDEX_SORT_SELECT();
+  int  init();
+  int  get_next();
+  bool is_valid();
+  int  reset(void);
+  void get_fields_used(MY_BITMAP *used_fields);
+  bool reverse_sorted() const { return false; }
+  bool is_loose_index_scan() const { return false; }
+  bool reverse_sort_possible() const { return false; }
+  bool push_quick_back(QUICK_SELECT_I *quick_sel_range);
+  bool is_agg_loose_index_scan() const { return false; }
+  void need_sorted_output() { assert(false); /* Can't do it */ }
+
+public:
+  THD *thd;
+  MEM_ROOT alloc;
+  bool scans_inited;
+  /* range quick selects this index_merge read consists of */
+  List<QUICK_SELECT_I> quick_selects;
+
+private:
+  Unique *unique;
+  QUICK_SELECT_I* cur_quick;
+  List_iterator_fast<QUICK_SELECT_I> cur_quick_it;
+};
+
+class QUICK_SDB_INDEX_MERGE_SELECT : public QUICK_SDB_INDEX_SORT_SELECT {
+public:
+  QUICK_SDB_INDEX_MERGE_SELECT(THD *thd, TABLE *table) : 
+                               QUICK_SDB_INDEX_SORT_SELECT(thd, table) {  
+  }
+  ~QUICK_SDB_INDEX_MERGE_SELECT() { }
+  void add_info_string(String *str);
+#ifndef NDEBUG
+  void dbug_dump(int indent, bool verbose);
+#endif
+  bool is_keys_used(const MY_BITMAP *fields);
+  int get_type() const { return QS_TYPE_INDEX_MERGE; }
+  void add_keys_and_lengths(String *key_names, String *used_lengths);
+};
+
+class QUICK_SDB_ROR_UNION_SELECT : public QUICK_SDB_INDEX_SORT_SELECT {
+public:
+  QUICK_SDB_ROR_UNION_SELECT(THD *thd, TABLE *table) :
+                             QUICK_SDB_INDEX_SORT_SELECT(thd, table) { 
+    index= MAX_KEY;
+    head= table;                             
+  }
+  ~QUICK_SDB_ROR_UNION_SELECT() {
+    if (head->file->inited == handler::RND) {
+      head->file->ha_rnd_end();
+    }
+  }
+  int  reset(void);
+  void add_info_string(String *str);
+#ifndef NDEBUG
+  void dbug_dump(int indent, bool verbose);
+#endif
+  bool is_keys_used(const MY_BITMAP *fields);
+  int get_type() const { return QS_TYPE_ROR_UNION; }
+  void add_keys_and_lengths(String *key_names, String *used_lengths);
+};
 
 #endif

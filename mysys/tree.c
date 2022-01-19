@@ -285,6 +285,82 @@ TREE_ELEMENT *tree_insert(TREE *tree, void *key, uint key_size,
   return element;
 }
 
+TREE_ELEMENT *tree_insert_with_info(TREE *tree, void *key, uint key_size, 
+                          const void* custom_arg, int *is_dup)
+{
+  int cmp;
+  TREE_ELEMENT *element,***parent;
+
+  parent= tree->parents;
+  *parent = &tree->root; element= tree->root;
+  for (;;)
+  {
+    if (element == &tree->null_element ||
+	(cmp = (*tree->compare)(custom_arg, ELEMENT_KEY(tree,element),
+                                key)) == 0)
+      break;
+    if (cmp < 0)
+    {
+      *++parent= &element->right; element= element->right;
+    }
+    else
+    {
+      *++parent = &element->left; element= element->left;
+    }
+  }
+  *is_dup = ((element == &tree->null_element) ? 0 : 1);
+  if (element == &tree->null_element)
+  {
+    uint alloc_size=sizeof(TREE_ELEMENT)+key_size+tree->size_of_element;
+    tree->allocated+=alloc_size;
+
+    if (tree->memory_limit && tree->elements_in_tree
+                           && tree->allocated > tree->memory_limit)
+    {
+      reset_tree(tree);
+      return tree_insert(tree, key, key_size, custom_arg);
+    }
+
+    key_size+=tree->size_of_element;
+    if (tree->with_delete)
+      element=(TREE_ELEMENT *) my_malloc(key_memory_TREE,
+                                         alloc_size, MYF(MY_WME));
+    else
+      element=(TREE_ELEMENT *) alloc_root(&tree->mem_root,alloc_size);
+    if (!element)
+      return(NULL);
+    **parent=element;
+    element->left=element->right= &tree->null_element;
+    if (!tree->offset_to_key)
+    {
+      if (key_size == sizeof(void*))		 /* no length, save pointer */
+	*((void**) (element+1))=key;
+      else
+      {
+	*((void**) (element+1))= (void*) ((void **) (element+1)+1);
+	memcpy((uchar*) *((void **) (element+1)),key,
+	       (size_t) (key_size-sizeof(void*)));
+      }
+    }
+    else
+      memcpy((uchar*) element+tree->offset_to_key,key,(size_t) key_size);
+    element->count=1;
+    tree->elements_in_tree++;
+    rb_insert(tree,parent,element);	/* rebalance tree */
+  }
+  else
+  {
+    if (tree->flag & TREE_NO_DUPS)
+      return(NULL);
+    element->count++;
+    /* Avoid a wrap over of the count. */
+    if (! element->count)
+      element->count--;
+  }
+  DBUG_EXECUTE("check_tree", test_rb_tree(tree->root););
+  return element;
+}
+
 int tree_delete(TREE *tree, void *key, uint key_size, const void *custom_arg)
 {
   int cmp,remove_colour;
