@@ -4192,7 +4192,16 @@ static bool update_transaction_isolation(sys_var *self, THD *thd,
                                          enum_var_type type)
 {
   SV *sv= type == OPT_GLOBAL ? &global_system_variables : &thd->variables;
+  ulong saved_trans_iso= sv->tx_isolation;
   sv->transaction_isolation= sv->tx_isolation;
+  if (type == OPT_SESSION && THD::sdb_set_tran_iso_level_callback && thd)
+  {
+    if (THD::sdb_set_tran_iso_level_callback(thd))
+    {
+      sv->tx_isolation= saved_trans_iso;
+      return true;
+    }
+  }
   return false;
 }
 

@@ -1054,6 +1054,7 @@ void Open_tables_state::reset_open_tables_state()
 }
 
 
+int (*THD::sdb_set_tran_iso_level_callback)(THD *);
 THD::THD(bool enable_plugins)
   :Query_arena(&main_mem_root, STMT_CONVENTIONAL_EXECUTION),
    mark_used_columns(MARK_COLUMNS_READ),
