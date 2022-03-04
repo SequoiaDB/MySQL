@@ -4474,6 +4474,11 @@ int handler::delete_table(const char *name)
   return saved_error ? saved_error : error;
 }
 
+int handler::swap_table(const char *from, const char *to)
+{
+  int error= 0;
+  return error;
+}
 
 int handler::rename_table(const char * from, const char * to)
 {
@@ -4955,6 +4960,18 @@ handler::ha_rename_table(const char *from, const char *to)
   mark_trx_read_write();
 
   return rename_table(from, to);
+}
+
+/**
+  Swap table: public interface.
+
+  @sa handler::swap_table()
+*/
+
+int
+handler::ha_swap_table(const char *from, const char *to)
+{
+  return swap_table(from, to);
 }
 
 

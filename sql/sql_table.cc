@@ -888,7 +888,8 @@ static void set_global_from_ddl_log_entry(const DDL_LOG_ENTRY *ddl_log_entry)
           ddl_log_entry->name, FN_REFLEN - 1);
   if (ddl_log_entry->action_type == DDL_LOG_RENAME_ACTION ||
       ddl_log_entry->action_type == DDL_LOG_REPLACE_ACTION ||
-      ddl_log_entry->action_type == DDL_LOG_EXCHANGE_ACTION)
+      ddl_log_entry->action_type == DDL_LOG_EXCHANGE_ACTION ||
+      ddl_log_entry->action_type == DDL_LOG_SWAP_ACTION)
   {
     assert(strlen(ddl_log_entry->from_name) < FN_REFLEN);
     strmake(&global_ddl_log.file_entry_buf[DDL_LOG_NAME_POS + FN_REFLEN],
@@ -1089,7 +1090,8 @@ static bool deactivate_ddl_log_entry_no_lock(uint entry_no)
           (file_entry_buf[DDL_LOG_ACTION_TYPE_POS] == DDL_LOG_EXCHANGE_ACTION &&
            file_entry_buf[DDL_LOG_PHASE_POS] >= EXCH_PHASE_TEMP_TO_FROM))
         file_entry_buf[DDL_LOG_ENTRY_TYPE_POS]= DDL_IGNORE_LOG_ENTRY_CODE;
-      else if (file_entry_buf[DDL_LOG_ACTION_TYPE_POS] == DDL_LOG_REPLACE_ACTION)
+      else if (file_entry_buf[DDL_LOG_ACTION_TYPE_POS] == DDL_LOG_REPLACE_ACTION ||
+               file_entry_buf[DDL_LOG_ACTION_TYPE_POS] == DDL_LOG_SWAP_ACTION)
       {
         assert(file_entry_buf[DDL_LOG_PHASE_POS] == 0);
         file_entry_buf[DDL_LOG_PHASE_POS]= 1;
@@ -1182,6 +1184,21 @@ static bool execute_ddl_log_action(THD *thd, DDL_LOG_ENTRY *ddl_log_entry)
   switch (ddl_log_entry->action_type)
   {
     case DDL_LOG_REPLACE_ACTION:
+    case DDL_LOG_SWAP_ACTION:
+    {
+      if (!frm_action &&
+          ddl_log_entry->action_type == DDL_LOG_SWAP_ACTION &&
+          0 == strcmp(ddl_log_entry->handler_name, "SequoiaDB"))
+      {
+        if (file->ha_swap_table(ddl_log_entry->name,
+                                ddl_log_entry->from_name))
+          break;
+        if ((deactivate_ddl_log_entry_no_lock(ddl_log_entry->entry_pos)))
+          break;
+        (void) sync_ddl_log_no_lock();
+      }
+    }
+    // fall through
     case DDL_LOG_DELETE_ACTION:
     {
       if (ddl_log_entry->phase == 0)
@@ -1205,17 +1222,24 @@ static bool execute_ddl_log_action(THD *thd, DDL_LOG_ENTRY *ddl_log_entry)
         }
         else
         {
-          if ((error= file->ha_delete_table(ddl_log_entry->name)))
+          const char *del_tab_name= ddl_log_entry->name;
+          if (DDL_LOG_SWAP_ACTION == ddl_log_entry->action_type)
+            del_tab_name= ddl_log_entry->from_name;
+          if ((error= file->ha_delete_table(del_tab_name)))
           {
             if (error != ENOENT && error != HA_ERR_NO_SUCH_TABLE)
               break;
           }
         }
-        if ((deactivate_ddl_log_entry_no_lock(ddl_log_entry->entry_pos)))
-          break;
-        (void) sync_ddl_log_no_lock();
+        if (ddl_log_entry->action_type != DDL_LOG_SWAP_ACTION)
+        {
+          if ((deactivate_ddl_log_entry_no_lock(ddl_log_entry->entry_pos)))
+            break;
+          (void) sync_ddl_log_no_lock();
+        }
         error= FALSE;
-        if (ddl_log_entry->action_type == DDL_LOG_DELETE_ACTION)
+        if (ddl_log_entry->action_type == DDL_LOG_DELETE_ACTION ||
+            ddl_log_entry->action_type == DDL_LOG_SWAP_ACTION)
           break;
       }
       assert(ddl_log_entry->action_type == DDL_LOG_REPLACE_ACTION);
@@ -5723,6 +5747,128 @@ mysql_rename_table(handlerton *base, const char *old_db,
   DBUG_RETURN(error != 0);
 }
 
+bool mysql_swap_table(handlerton *base, const char *old_db,
+                      const char *old_name, const char *new_db,
+                      const char *new_name, const char *backup_name,
+                      uint flags)
+{
+  THD *thd= current_thd;
+  char from[FN_REFLEN + 1]= {0}, to[FN_REFLEN + 1]= {0},
+    lc_from[FN_REFLEN + 1]= {0}, lc_to[FN_REFLEN + 1]= {0};
+  char *from_base= from, *to_base= to;
+  char tmp_name[NAME_LEN+1]= {0};
+  handler *file= NULL;
+  int error=0;
+  ulonglong save_bits= thd->variables.option_bits;
+  size_t length= 0;
+  bool was_truncated= FALSE;
+  DBUG_ENTER("mysql_swap_table");
+  DBUG_PRINT("enter", ("old: '%s'.'%s'  swap: '%s'.'%s'",
+                       old_db, old_name, new_db, new_name));
+
+  // Temporarily disable foreign key checks
+  if (flags & NO_FK_CHECKS)
+    thd->variables.option_bits|= OPTION_NO_FOREIGN_KEY_CHECKS;
+
+  file= (base == NULL ? 0 :
+         get_new_handler((TABLE_SHARE*) 0, thd->mem_root, base));
+
+  build_table_filename(from, sizeof(from) - 1, old_db, old_name, "",
+                       flags & FN_FROM_IS_TMP);
+  length= build_table_filename(to, sizeof(to) - 1, new_db, new_name, "",
+                               flags & FN_TO_IS_TMP, &was_truncated);
+  // Check if we hit FN_REFLEN bytes along with file extension.
+  if (was_truncated || length+reg_ext_length > FN_REFLEN)
+  {
+    my_error(ER_IDENT_CAUSES_TOO_LONG_PATH, MYF(0), sizeof(to)-1, to);
+    DBUG_RETURN(TRUE);
+  }
+
+  /*
+    If lower_case_table_names == 2 (case-preserving but case-insensitive
+    file system) and the storage is not HA_FILE_BASED, we need to provide
+    a lowercase file name, but we leave the .frm in mixed case.
+   */
+  if (lower_case_table_names == 2 && file &&
+      !(file->ha_table_flags() & HA_FILE_BASED))
+  {
+    my_stpcpy(tmp_name, old_name);
+    my_casedn_str(files_charset_info, tmp_name);
+    build_table_filename(lc_from, sizeof(lc_from) - 1, old_db, tmp_name, "",
+                         flags & FN_FROM_IS_TMP);
+    from_base= lc_from;
+
+    my_stpcpy(tmp_name, new_name);
+    my_casedn_str(files_charset_info, tmp_name);
+    build_table_filename(lc_to, sizeof(lc_to) - 1, new_db, tmp_name, "",
+                         flags & FN_TO_IS_TMP);
+    to_base= lc_to;
+  }
+
+  if (!file || !(error=file->ha_swap_table(from_base, to_base)))
+  {
+    // rename frm name to #sql2-xxx
+    if (mysql_rename_table(NULL, old_db, old_name, new_db, backup_name,
+                           FN_TO_IS_TMP))
+    {
+      error= my_errno();
+      /* Restore old file name */
+      if (file)
+        file->ha_swap_table(to_base, from_base);
+    }
+    // rename #sql-xxx to original name
+    if (!error && mysql_rename_table(NULL, old_db, new_name, new_db, old_name,
+                                     FN_FROM_IS_TMP))
+    {
+      error= my_errno();
+      if (file)
+        file->ha_swap_table(to_base, from_base);
+      mysql_rename_table(NULL, new_db, backup_name, old_db, old_name,
+                         FN_FROM_IS_TMP);
+    }
+    // rename #sql2-xxx to new table name
+    if (!error && mysql_rename_table(NULL, old_db, backup_name, new_db, new_name,
+                                     FN_IS_TMP))
+    {
+      error= my_errno();
+      if (file)
+        file->ha_swap_table(to_base, from_base);
+      mysql_rename_table(NULL, new_db, old_name, old_db, new_name,
+                         FN_TO_IS_TMP);
+      mysql_rename_table(NULL, new_db, backup_name, old_db, old_name,
+                         FN_FROM_IS_TMP);
+    }
+  }
+
+  delete file;
+  if (error == HA_ERR_WRONG_COMMAND)
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0), "ALTER TABLE");
+  else if (error)
+  {
+    char errbuf[MYSYS_STRERROR_SIZE];
+    my_error(ER_ERROR_ON_RENAME, MYF(0), from, to,
+             error, my_strerror(errbuf, sizeof(errbuf), error));
+  }
+
+#ifdef HAVE_PSI_TABLE_INTERFACE
+  /*
+    Remove the old table share from the pfs table share array. The new table
+    share will be created when the renamed table is first accessed.
+   */
+  if (likely(error == 0))
+  {
+    my_bool temp_table= (my_bool)is_prefix(old_name, tmp_file_prefix);
+    PSI_TABLE_CALL(drop_table_share)
+      (temp_table, old_db, static_cast<int>(strlen(old_db)),
+       old_name, static_cast<int>(strlen(old_name)));
+  }
+#endif
+
+  // Restore options bits to the original value
+  thd->variables.option_bits= save_bits;
+
+  DBUG_RETURN(error != 0);
+}
 
 /*
   Create a table identical to the specified table
@@ -9059,6 +9205,8 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
 
   Silence_deprecation_warnings deprecation_silencer(thd);
   bool is_partitioned= false;
+  const char *new_table_engine= NULL;
+  bool need_swap_table= false;
 
   /*
     Check if we attempt to alter mysql.slow_log or
@@ -9203,6 +9351,7 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
   */
   is_partitioned= table->s->db_type() &&
           is_ha_partition_handlerton(table->s->db_type());
+
 
   /*
     Prohibit changing of the UNION list of a non-temporary MERGE table
@@ -10047,32 +10196,67 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
               current_pid, thd->thread_id());
   if (lower_case_table_names)
     my_casedn_str(files_charset_info, backup_name);
-  if (mysql_rename_table(old_db_type, alter_ctx.db, alter_ctx.table_name,
-                         alter_ctx.db, backup_name, FN_TO_IS_TMP))
-  {
-    // Rename to temporary name failed, delete the new table, abort ALTER.
-    (void) quick_rm_table(thd, new_db_type, alter_ctx.new_db,
-                          alter_ctx.tmp_name, FN_IS_TMP);
-    goto err_with_mdl;
-  }
 
-  // Rename the new table to the correct name.
-  if (mysql_rename_table(new_db_type, alter_ctx.new_db, alter_ctx.tmp_name,
-                         alter_ctx.new_db, alter_ctx.new_alias,
-                         FN_FROM_IS_TMP))
+  new_table_engine= ha_resolve_storage_engine_name(create_info->db_type);
+  need_swap_table= ((old_db_type == new_db_type) &&
+                    (0 == strcmp(new_table_engine, "SequoiaDB")));
+  // swap SequoiaDB table
+  if (need_swap_table)
   {
-    // Rename failed, delete the temporary table.
-    (void) quick_rm_table(thd, new_db_type, alter_ctx.new_db,
-                          alter_ctx.tmp_name, FN_IS_TMP);
-    
-    // Restore the backup of the original table to the old name.
-    (void) mysql_rename_table(old_db_type, alter_ctx.db, backup_name,
-                              alter_ctx.db, alter_ctx.alias, 
-                              FN_FROM_IS_TMP | NO_FK_CHECKS);
-    
-    goto err_with_mdl;
+    if (mysql_swap_table(old_db_type, alter_ctx.db, alter_ctx.table_name,
+                         alter_ctx.db, alter_ctx.tmp_name, backup_name,
+                         FN_TO_IS_TMP))
+    {
+      (void) quick_rm_table(thd, new_db_type, alter_ctx.new_db,
+                            alter_ctx.tmp_name, FN_IS_TMP);
+      goto err_with_mdl;
+    }
+    // handle altering table with rename table operation
+    // eg: ALTER TABLE t2 CHANGE int_field unsigned_int_field INTEGER
+    //     UNSIGNED NOT NULL, RENAME t1;
+    if (0 != strcmp(alter_ctx.table_name, alter_ctx.new_alias))
+    {
+      if (mysql_rename_table(old_db_type, alter_ctx.db, alter_ctx.table_name,
+                             alter_ctx.new_db, alter_ctx.new_alias,
+                             FN_FROM_IS_TMP))
+      {
+        // Rename failed, try to restore original state and ignore errors
+        mysql_swap_table(old_db_type, alter_ctx.db, alter_ctx.tmp_name,
+                         alter_ctx.db, alter_ctx.table_name, backup_name,
+                         FN_FROM_IS_TMP);
+        (void) quick_rm_table(thd, new_db_type, alter_ctx.new_db,
+                              alter_ctx.tmp_name, FN_IS_TMP);
+        goto err_with_mdl;
+      }
+    }
   }
+  else
+  {
+    if (mysql_rename_table(old_db_type, alter_ctx.db, alter_ctx.table_name,
+                           alter_ctx.db, backup_name, FN_TO_IS_TMP))
+    {
+      // Rename to temporary name failed, delete the new table, abort ALTER.
+      (void) quick_rm_table(thd, new_db_type, alter_ctx.new_db,
+                            alter_ctx.tmp_name, FN_IS_TMP);
+      goto err_with_mdl;
+    }
 
+    // Rename the new table to the correct name.
+    if (mysql_rename_table(new_db_type, alter_ctx.new_db, alter_ctx.tmp_name,
+                           alter_ctx.new_db, alter_ctx.new_alias,
+                           FN_FROM_IS_TMP))
+    {
+      // Rename failed, delete the temporary table.
+      (void) quick_rm_table(thd, new_db_type, alter_ctx.new_db,
+                            alter_ctx.tmp_name, FN_IS_TMP);
+
+      // Restore the backup of the original table to the old name.
+      (void) mysql_rename_table(old_db_type, alter_ctx.db, backup_name,
+                                alter_ctx.db, alter_ctx.alias,
+                                FN_FROM_IS_TMP | NO_FK_CHECKS);
+      goto err_with_mdl;
+    }
+  }
   // Check if we renamed the table and if so update trigger files.
   if (alter_ctx.is_table_renamed() &&
       change_trigger_table_name(thd,
@@ -10092,8 +10276,15 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
     goto err_with_mdl;
   }
 
+  if (need_swap_table)
+  {
+    if (quick_rm_table(thd, old_db_type, alter_ctx.new_db,
+                       alter_ctx.tmp_name, FN_IS_TMP))
+      goto err_with_mdl;
+  }
   // ALTER TABLE succeeded, delete the backup of the old table.
-  if (quick_rm_table(thd, old_db_type, alter_ctx.db, backup_name, FN_IS_TMP))
+  else if (quick_rm_table(thd, old_db_type, alter_ctx.db, backup_name,
+                          FN_IS_TMP))
   {
     /*
       The fact that deletion of the backup failed is not critical

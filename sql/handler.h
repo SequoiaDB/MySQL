@@ -2462,6 +2462,7 @@ public:
   int ha_enable_indexes(uint mode);
   int ha_discard_or_import_tablespace(my_bool discard);
   int ha_rename_table(const char *from, const char *to);
+  int ha_swap_table(const char *from, const char *to);
   int ha_delete_table(const char *name);
   void ha_drop_table(const char *name);
 
@@ -3624,6 +3625,10 @@ protected:
     tables.
   */
   virtual int delete_table(const char *name);
+  /**
+    Exchange two tables by internal method in handler.
+  */
+  virtual int swap_table(const char *from, const char *to);
 private:
   /* Private helpers */
   void mark_trx_read_write();

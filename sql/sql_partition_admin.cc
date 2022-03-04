@@ -330,6 +330,10 @@ static bool exchange_name_with_ddl_log(THD *thd,
   exchange_entry.tmp_name=     tmp_name;
   exchange_entry.handler_name= ha_resolve_storage_engine_name(ht);
   exchange_entry.phase=        EXCH_PHASE_NAME_TO_TEMP;
+  if (0 == strcmp(exchange_entry.handler_name, "SequoiaDB"))
+  {
+    exchange_entry.action_type=  DDL_LOG_SWAP_ACTION;
+  }
 
   mysql_mutex_lock(&LOCK_gdl);
   /*
@@ -349,6 +353,18 @@ static bool exchange_name_with_ddl_log(THD *thd,
   /* ddl_log is written and synced */
 
   mysql_mutex_unlock(&LOCK_gdl);
+
+  // swap SequoiaDB table
+  if (DDL_LOG_SWAP_ACTION == exchange_entry.action_type)
+  {
+    error= file->ha_swap_table(name, from_name);
+    delete file;
+    if (error)
+      my_error(ER_GET_ERRNO, MYF(0), error, "Failed to swap %s and %s",
+               name, from_name);
+    DBUG_RETURN(error);
+  }
+
   /*
     Execute the name exchange.
     Do one rename, increase the phase, update the action entry and sync.

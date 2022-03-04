@@ -6222,7 +6222,12 @@ static bool write_log_changed_partitions(ALTER_PARTITION_PARAM_TYPE *lpt,
     if (part_elem->part_state == PART_IS_CHANGED ||
         (part_elem->part_state == PART_IS_ADDED && temp_partitions))
     {
-      if (part_info->is_sub_partitioned())
+      // always write partition(without sub-partition) releated DDL log
+      // for SequoiaDB partition table
+      const char *part_engine_type=
+          ha_resolve_storage_engine_name(part_elem->engine_type);
+      if (part_info->is_sub_partitioned() &&
+          strcmp(part_engine_type, "SequoiaDB"))
       {
         List_iterator<partition_element> sub_it(part_elem->subpartitions);
         uint num_subparts= part_info->num_subparts;
@@ -6247,6 +6252,10 @@ static bool write_log_changed_partitions(ALTER_PARTITION_PARAM_TYPE *lpt,
             ddl_log_entry.action_type= DDL_LOG_REPLACE_ACTION;
           else
             ddl_log_entry.action_type= DDL_LOG_RENAME_ACTION;
+          // do swap action for SequoiaDB table
+          if (part_elem->part_state == PART_IS_CHANGED &&
+              0 == strcmp(ddl_log_entry.handler_name, "SequoiaDB"))
+            ddl_log_entry.action_type= DDL_LOG_SWAP_ACTION;
           if (write_ddl_log_entry(&ddl_log_entry, &log_entry))
           {
             DBUG_RETURN(TRUE);
@@ -6258,6 +6267,10 @@ static bool write_log_changed_partitions(ALTER_PARTITION_PARAM_TYPE *lpt,
       }
       else
       {
+        if (HASH_PARTITION == part_info->part_type &&
+            0 == strcmp(part_engine_type, "SequoiaDB")) {
+          continue;
+        }
         ddl_log_entry.next_entry= *next_entry;
         ddl_log_entry.handler_name=
                ha_resolve_storage_engine_name(part_elem->engine_type);
@@ -6273,6 +6286,10 @@ static bool write_log_changed_partitions(ALTER_PARTITION_PARAM_TYPE *lpt,
           ddl_log_entry.action_type= DDL_LOG_REPLACE_ACTION;
         else
           ddl_log_entry.action_type= DDL_LOG_RENAME_ACTION;
+        // do swap action for SequoiaDB table
+        if (part_elem->part_state == PART_IS_CHANGED &&
+            0 == strcmp(ddl_log_entry.handler_name, "SequoiaDB"))
+          ddl_log_entry.action_type= DDL_LOG_SWAP_ACTION;
         if (write_ddl_log_entry(&ddl_log_entry, &log_entry))
         {
           DBUG_RETURN(TRUE);
@@ -6322,6 +6339,7 @@ static bool write_log_dropped_partitions(ALTER_PARTITION_PARAM_TYPE *lpt,
       part_elem= temp_it++;
     else
       part_elem= part_it++;
+
     if (part_elem->part_state == PART_TO_BE_DROPPED ||
         part_elem->part_state == PART_TO_BE_ADDED ||
         part_elem->part_state == PART_CHANGED)
@@ -6333,7 +6351,12 @@ static bool write_log_dropped_partitions(ALTER_PARTITION_PARAM_TYPE *lpt,
         name_variant= TEMP_PART_NAME;
       else
         name_variant= NORMAL_PART_NAME;
-      if (part_info->is_sub_partitioned())
+      // always write partition(without sub-partition) releated DDL log
+      // for SequoiaDB partition table
+      const char *part_engine_type=
+          ha_resolve_storage_engine_name(part_elem->engine_type);
+      if (part_info->is_sub_partitioned() &&
+          strcmp(part_engine_type, "SequoiaDB"))
       {
         List_iterator<partition_element> sub_it(part_elem->subpartitions);
         uint num_subparts= part_info->num_subparts;

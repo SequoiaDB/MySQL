@@ -79,11 +79,14 @@ enum ddl_log_action_code
       new name, that is replace this entry.
     DDL_LOG_EXCHANGE_ACTION:
       Exchange two entities by renaming them a -> tmp, b -> a, tmp -> b.
+    DDL_LOG_SWAP_ACTION:
+      Exchange two entities by calling swap function.
   */
   DDL_LOG_DELETE_ACTION = 'd',
   DDL_LOG_RENAME_ACTION = 'r',
   DDL_LOG_REPLACE_ACTION = 's',
-  DDL_LOG_EXCHANGE_ACTION = 'e'
+  DDL_LOG_EXCHANGE_ACTION = 'e',
+  DDL_LOG_SWAP_ACTION = 'c'
 };
 
 enum enum_ddl_log_exchange_phase {
