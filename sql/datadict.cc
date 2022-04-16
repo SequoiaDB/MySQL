@@ -44,20 +44,25 @@ frm_type_enum dd_frm_type(THD *thd, char *path, enum legacy_db_type *dbt)
   File file;
   uchar header[10];     //"TYPE=VIEW\n" it is 10 characters
   size_t error;
+  frm_type_enum return_type = FRMTYPE_ERROR;
+  uchar *frm_image= 0;
   DBUG_ENTER("dd_frm_type");
 
   *dbt= DB_TYPE_UNKNOWN;
 
   if ((file= mysql_file_open(key_file_frm, path, O_RDONLY | O_SHARE, MYF(0))) < 0)
     DBUG_RETURN(FRMTYPE_ERROR);
+
   error= mysql_file_read(file, (uchar*) header, sizeof(header), MYF(MY_NABP));
-  mysql_file_close(file, MYF(MY_WME));
 
-  if (error)
-    DBUG_RETURN(FRMTYPE_ERROR);
-  if (!strncmp((char*) header, "TYPE=VIEW\n", sizeof(header)))
-    DBUG_RETURN(FRMTYPE_VIEW);
-
+  if (error){
+    return_type=FRMTYPE_ERROR;
+    goto done;
+  }
+  if (!strncmp((char*) header, "TYPE=VIEW\n", sizeof(header))){
+    return_type=FRMTYPE_VIEW;
+    goto done;
+  }
   /*
     This is just a check for DB_TYPE. We'll return default unknown type
     if the following test is true (arg #3). This should not have effect
@@ -65,13 +70,78 @@ frm_type_enum dd_frm_type(THD *thd, char *path, enum legacy_db_type *dbt)
   */
   if (header[0] != (uchar) 254 || header[1] != 1 ||
       (header[2] != FRM_VER && header[2] != FRM_VER+1 &&
-       (header[2] < FRM_VER+3 || header[2] > FRM_VER+4)))
-    DBUG_RETURN(FRMTYPE_TABLE);
+       (header[2] < FRM_VER+3 || header[2] > FRM_VER+4))){
+    return_type=FRMTYPE_TABLE;
+    goto done;
+    }
 
   *dbt= (enum legacy_db_type) (uint) *(header + 3);
+  if(*dbt < DB_TYPE_FIRST_DYNAMIC){
+    return_type = FRMTYPE_TABLE;
+    DBUG_RETURN(return_type);
+  }
 
+/* 
+  See open_binary_frm
+
+  if the storage engine is dynamic, no point in resolving it by its
+      dynamically allocated legacy_db_type. We should resolve it  by name.
+
+  The real engine name is saved in Extra_data_segment. We need to use an
+  offset to read the engine name;
+*/
+
+
+  {
+    MY_STAT state;  
+    uint n_length;
+
+    if (mysql_file_fstat(file, &state, MYF(MY_WME)))
+      goto done;
+
+    if (mysql_file_seek(file, 0, SEEK_SET, MYF(MY_WME)))
+      goto done;
+
+    if (!(frm_image= (uchar*) my_malloc(key_memory_frm_extra_segment_buff,
+            state.st_size, MYF(MY_WME))))
+      goto done;
+    
+
+    if (mysql_file_read(file,frm_image,(size_t)state.st_size,MYF(MY_NABP)))
+      goto done;
+
+    if ((n_length= uint4korr(frm_image+55)))
+    {
+      uint record_offset= uint2korr(frm_image+6)+
+        ((uint2korr(frm_image+14) == 0xffff ?
+          uint4korr(frm_image+47) : uint2korr(frm_image+14)));
+      uint reclength= uint2korr(frm_image+16);
+
+      uchar *next_chunk= frm_image + record_offset + reclength;
+      uchar *buff_end= next_chunk + n_length;
+      uint connect_string_length= uint2korr(next_chunk);
+      next_chunk+= connect_string_length + 2;
+      if (next_chunk + 2 < buff_end)
+      {
+        uint len= uint2korr(next_chunk);
+        if (len <= NAME_CHAR_LEN)
+        {
+          LEX_STRING name;
+          name.str= (char*) next_chunk + 2;
+          name.length= len;
+          plugin_ref tmp_plugin= ha_resolve_by_name(thd, &name, FALSE);
+          *dbt = ha_legacy_type(plugin_data<handlerton*>(tmp_plugin));
+          return_type = FRMTYPE_TABLE;
+        }
+      }
+    }
+  }
+
+done:
+  my_free(frm_image);
   /* Probably a table. */
-  DBUG_RETURN(FRMTYPE_TABLE);
+  mysql_file_close(file, MYF(MY_WME));
+  DBUG_RETURN(return_type);
 }
 
 
