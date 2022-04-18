@@ -1974,6 +1974,14 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
         */
         plugin_unlock(NULL, share->db_plugin);
         share->db_plugin= my_plugin_lock(NULL, &tmp_plugin);
+
+        if(share->default_part_db_type
+            && !my_charset_latin1.coll->strnncoll(&my_charset_latin1,
+              (const uchar *)name.str, name.length,
+              (const uchar *)STRING_WITH_LEN("SequoiaDB"), 0)){
+          share->default_part_db_type=plugin_data<handlerton*>(tmp_plugin);
+        }
+
         DBUG_PRINT("info", ("setting dbtype to '%.*s' (%d)",
                             str_db_type_length, next_chunk + 2,
                             ha_legacy_type(share->db_type())));
