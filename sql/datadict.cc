@@ -78,7 +78,7 @@ frm_type_enum dd_frm_type(THD *thd, char *path, enum legacy_db_type *dbt)
   *dbt= (enum legacy_db_type) (uint) *(header + 3);
   if(*dbt < DB_TYPE_FIRST_DYNAMIC){
     return_type = FRMTYPE_TABLE;
-    DBUG_RETURN(return_type);
+    goto done;
   }
 
 /* 
