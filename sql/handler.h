@@ -2362,7 +2362,7 @@ public:
   handler(handlerton *ht_arg, TABLE_SHARE *share_arg)
     :table_share(share_arg), table(0),
     estimation_rows_to_insert(0), ht(ht_arg),
-    ref(0), range_scan_direction(RANGE_SCAN_ASC),
+    ref(0), mrr_iter(NULL), range_scan_direction(RANGE_SCAN_ASC),
     in_range_check_pushed_down(false), end_range(NULL),
     m_virt_gcol_in_end_range(false),
     key_used_on_scan(MAX_KEY), active_index(MAX_KEY),
