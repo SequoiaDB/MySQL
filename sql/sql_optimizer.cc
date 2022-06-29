@@ -138,6 +138,7 @@ int
 JOIN::optimize()
 {
   uint no_jbuf_after= UINT_MAX;
+  bool use_join_cache= false;
 
   DBUG_ENTER("JOIN::optimize");
   assert(select_lex->leaf_table_count == 0 ||
@@ -564,44 +565,31 @@ JOIN::optimize()
     DBUG_RETURN(ret < 0);
   }
 
+  /*
+    If the hint FORCE INDEX FOR ORDER BY/GROUP BY is used for the first
+    table (it does not make sense for other tables) then we cannot do join
+    buffering.
+  */
+  if (!plan_is_const())
   {
-    /*
-      If the hint FORCE INDEX FOR ORDER BY/GROUP BY is used for the first
-      table (it does not make sense for other tables) then we cannot do join
-      buffering.
-    */
-    if (!plan_is_const())
-    {
-      const TABLE * const first= best_ref[const_tables]->table();
-      if ((first->force_index_order && order) ||
-          (first->force_index_group && group_list))
-        no_jbuf_after= 0;
-    }
+    const TABLE * const first= best_ref[const_tables]->table();
+    if ((first->force_index_order && order) ||
+        (first->force_index_group && group_list))
+      no_jbuf_after= 0;
+  }
 
-    bool simple_sort= true;
-    // Check whether join cache could be used
-    for (uint i= const_tables; i < tables; i++)
-    {
-      JOIN_TAB *const tab= best_ref[i];
-      if (!tab->position())
-        continue;
-      if (setup_join_buffering(tab, this, no_jbuf_after))
-        DBUG_RETURN(true);
-      if (tab->use_join_cache() != JOIN_CACHE::ALG_NONE)
-        simple_sort= false;
-      assert(tab->type() != JT_FT ||
-             tab->use_join_cache() == JOIN_CACHE::ALG_NONE);
-    }
-    if (!simple_sort)
-    {
-      /*
-        A join buffer is used for this table. We here inform the optimizer
-        that it should not rely on rows of the first non-const table being in
-        order thanks to an index scan; indeed join buffering of the present
-        table subsequently changes the order of rows.
-      */
-      simple_order= simple_group= false;
-    }
+  // Check whether join cache could be used
+  for (uint i= const_tables; i < tables; i++)
+  {
+    JOIN_TAB *const tab= best_ref[i];
+    if (!tab->position())
+      continue;
+    if (setup_join_buffering(tab, this, no_jbuf_after))
+      DBUG_RETURN(true);
+    if (tab->use_join_cache() != JOIN_CACHE::ALG_NONE)
+      use_join_cache= true;
+    assert(tab->type() != JT_FT ||
+           tab->use_join_cache() == JOIN_CACHE::ALG_NONE);
   }
 
   if (!plan_is_const() && order)
@@ -667,6 +655,103 @@ JOIN::optimize()
 
   if (alloc_qep(tables))
     DBUG_RETURN(error= 1);                      /* purecov: inspected */
+  
+  /*
+    If handling ORDER BY with LIMIT, and join cache is used, the simple order
+    is impossible. But as we only care about the top N result, we can add an
+    extra sort like simple order to limit the scan. Take an example:
+  
+    `SELECT ... FROM t1 JOIN t2 ON t1.a = t2.a ORDER BY t1.a LIMIT 1`
+  
+    If join order is t1 => t2 and join cache is used, then we would have a
+    plan as follows:
+  
+           limit(2)
+              |
+            sort(2)
+              |
+           tmp table
+              |
+             join (with limit(1))
+           /     \
+        sort(1)   t2
+          |
+          t1
+  
+    Before optimized, as sort(1) and limit(1) doesn't exist, t1 has to join
+    all the t2, and sort the all join result(sort(2)), and do limit finally
+    (limit(2)).
+  
+    After optimized, as t1 is sorted, when tmp table record count hits the
+    limit(1), the t1 would stop building the next join cache. Because top N
+    records has already appeared. In an other word, the limit(1) is the batch
+    number limit, and the limit(2) is the record number limit.
+  
+    Here it uses an extra sort to save scan time. But if the LIMIT number is
+    so great that few scan time can be saved. It shouldn't be employed. That
+    is why the extra_sort_threshold exists.
+  */
+  {
+    /*
+      The criteria
+      1) Has ORDER BY clause
+      2) Currently simple order can be employed
+      3) Has LIMIT clause
+      4) Join cache used
+      5) No any aggregation, which makes LIMIT number unknown.
+      6) The found_records/LIMIT on the sort table gte than the threshold.
+    */
+    JOIN_TAB *sort_by_tab = best_ref[const_tables];
+    if (order && // 1
+        simple_order && // 2
+        m_select_limit != HA_POS_ERROR && // 3
+        use_join_cache && // 4
+        !group_list && !implicit_grouping && //5
+        !select_distinct &&//5
+        ((sort_by_tab->found_records / m_select_limit) >=
+             thd->variables.optimizer_limit_pushdown_threshold)) //6
+    {
+      if (test_if_skip_sort_order(sort_by_tab, order, m_select_limit, false, 
+          &sort_by_tab->table()->keys_in_use_for_order_by, "ORDER BY"))
+      {
+        limit_for_join_cache = true;
+        DBUG_PRINT("info", ("Using extra simple sort to optimize limit with "
+                   "join cache"));
+      }
+      else
+      {
+        if (add_sorting_to_table(const_tables, &order))
+        {
+          DBUG_RETURN(1);
+        }
+        limit_for_join_cache = true;
+        DBUG_PRINT("info", ("Using extra filesort to optimize limit with "
+            "join cache"));
+      }
+    }
+
+    if (use_join_cache)
+    {
+      if (order) {
+        simple_order = false;
+        need_tmp = true;
+      }
+      if (group_list && !group_optimized_away) {
+        simple_group = false;
+        need_tmp = true;
+      }
+      /*
+        A join buffer is used for this table. We here inform the optimizer
+        that it should not rely on rows of the first non-const table being in
+        order thanks to an index scan; indeed join buffering of the present
+        table subsequently changes the order of rows.
+      */
+      if (sort_by_tab && limit_for_join_cache) {
+        need_tmp = true;
+        simple_order= simple_group= false;
+      }
+    }
+  }
 
   if (make_join_readinfo(this, no_jbuf_after))
     DBUG_RETURN(1);                             /* purecov: inspected */

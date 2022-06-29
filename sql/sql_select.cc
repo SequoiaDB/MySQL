@@ -2114,8 +2114,13 @@ void QEP_TAB::init_join_cache(JOIN_TAB *join_tab)
       q[-1].next_select= sub_select;
     }
   }
-  else
+  else {
+    /*first qep_tab in join which use join buffer.*/
+    if (!join_->first_cache_tab) {
+      join_->first_cache_tab = this;
+    }
     this[-1].next_select= sub_select_op;
+  }
 }
 
 
@@ -2175,7 +2180,7 @@ make_join_readinfo(JOIN *join, uint no_jbuf_after)
     qep_tab->next_select=sub_select;		/* normal select */
     qep_tab->cache_idx_cond= NULL;
     table->status= STATUS_GARBAGE | STATUS_NOT_FOUND;
-    assert(!qep_tab->read_first_record);
+    //assert(!qep_tab->read_first_record);
     qep_tab->read_record.read_record= NULL;
     qep_tab->read_record.unlock_row= rr_unlock_row;
 

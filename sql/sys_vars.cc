@@ -6103,3 +6103,16 @@ static Sys_var_mybool Sys_sequoiadb_push_down_join(
        "Whether push down join query or not.",
        SESSION_VAR(sdb_sql_pushdown), CMD_LINE(OPT_ARG),
        DEFAULT(FALSE));
+
+static Sys_var_uint Sys_extra_sort_threshold(
+       "optimizer_limit_pushdown_threshold",
+       "The threshold to control the limit pushdown on join with join buffer."
+       "The defination is: `value = sort_table_records / limit_number`."
+       "The sort_table_records is the records of table of ORDER BY columns. "
+       "limit_number is from the parameter of LIMIT clause. "
+       "If the value is greater or equal than threshold, the optimization is "
+       "on, else it is off.",
+       SESSION_VAR(optimizer_limit_pushdown_threshold),
+       CMD_LINE(OPT_ARG), VALID_RANGE(0, UINT_MAX),
+       DEFAULT(100), BLOCK_SIZE(1));
+

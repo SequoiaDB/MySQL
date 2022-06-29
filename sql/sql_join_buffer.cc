@@ -2037,6 +2037,32 @@ finish:
   }
   restore_last_record();
   reset_cache(true);
+  {
+    QEP_TAB *first_qep_tab = NULL;
+    if (!join->plan_is_const()) {
+      first_qep_tab= &join->qep_tab[join->const_tables];
+    }
+  
+    /*Limit the found records when limit pushed down to the join_cache*/
+    /*
+      1) Can do limit for join cache.
+      2) The first cache join tab.
+      3) After a batched cache.
+      4) Has limit in select.
+      5) Found records count gte the limit count.
+     */
+    if (first_qep_tab && join->limit_for_join_cache &&    //1
+        join->first_cache_tab && join->first_cache_tab == qep_tab && //2
+        NESTED_LOOP_OK == rc &&   //3
+        join->unit->select_limit_cnt &&   //4
+        join->found_records >= join->unit->select_limit_cnt) { //5
+      /*select SQL_CALC_FOUND_ROWS*/
+      if (!join->calc_found_rows) {
+        rc = NESTED_LOOP_QUERY_LIMIT;
+      }
+    }
+  }
+
   DBUG_RETURN(rc);
 }
 

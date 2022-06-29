@@ -1057,7 +1057,6 @@ enum_nested_loop_state
 sub_select_op(JOIN *join, QEP_TAB *qep_tab, bool end_of_records)
 {
   DBUG_ENTER("sub_select_op");
-
   if (join->thd->killed)
   {
     /* The user has aborted the execution of the query */
@@ -2794,7 +2793,7 @@ void QEP_TAB::pick_table_access_method(const JOIN_TAB *join_tab)
   ASSERT_BEST_REF_IN_JOIN_ORDER(join());
   assert(join_tab == join()->best_ref[idx()]);
   assert(table());
-  assert(read_first_record == NULL);
+  //assert(read_first_record == NULL);
   // Only some access methods support reversed access:
   assert(!join_tab->reversed_access || type() == JT_REF ||
          type() == JT_INDEX_SCAN);

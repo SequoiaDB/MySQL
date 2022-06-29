@@ -164,6 +164,8 @@ public:
     // Calculate the number of groups
     for (ORDER *group= group_list; group; group= group->next)
       send_group_parts++;
+    limit_for_join_cache = false;
+    first_cache_tab = NULL;
   }
 
   /// Query block that is optimized and executed using this JOIN
@@ -677,6 +679,9 @@ public:
   bool fts_index_access(JOIN_TAB *tab);
 
   Next_select_func get_end_select_func();
+
+  bool limit_for_join_cache;
+  QEP_TAB *first_cache_tab;
 
 private:
   bool optimized; ///< flag to avoid double optimization in EXPLAIN
