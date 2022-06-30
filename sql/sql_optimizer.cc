@@ -649,8 +649,6 @@ JOIN::optimize()
         DBUG_RETURN(1);
       }
     }
-    // Test if we can use an index instead of sorting
-    test_skip_sort();
   }
 
   if (alloc_qep(tables))
@@ -751,6 +749,12 @@ JOIN::optimize()
         simple_order= simple_group= false;
       }
     }
+  }
+
+  if (!plan_is_const())
+  {
+    // Test if we can use an index instead of sorting
+    test_skip_sort();
   }
 
   if (make_join_readinfo(this, no_jbuf_after))
