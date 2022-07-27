@@ -201,7 +201,9 @@ enum ha_extra_function {
   */
   HA_EXTRA_EXPORT,
   /** Do secondary sort by handler::ref (rowid) after key sort. */
-  HA_EXTRA_SECONDARY_SORT_ROWID
+  HA_EXTRA_SECONDARY_SORT_ROWID,
+  /** Do bka based join in handler.*/
+  HA_EXTRA_BKA_BASED_JOIN
 };
 
 /* Compatible option, to be deleted in 6.0 */
