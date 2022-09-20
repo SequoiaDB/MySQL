@@ -3538,6 +3538,12 @@ bool JOIN::make_tmp_tables_info()
 
   const bool has_group_by= this->grouped;
 
+  if (limit_for_join_cache &&
+      limit_for_join_cache_need_sort &&
+      add_sorting_to_table(const_tables, &order))
+  {
+    DBUG_RETURN(true);
+  }
   /*
     Setup last table to provide fields and all_fields lists to the next
     node in the plan.

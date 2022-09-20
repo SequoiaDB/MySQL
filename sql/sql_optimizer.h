@@ -165,6 +165,7 @@ public:
     for (ORDER *group= group_list; group; group= group->next)
       send_group_parts++;
     limit_for_join_cache = false;
+    limit_for_join_cache_need_sort = false;
     first_cache_tab = NULL;
   }
 
@@ -681,6 +682,7 @@ public:
   Next_select_func get_end_select_func();
 
   bool limit_for_join_cache;
+  bool limit_for_join_cache_need_sort;
   QEP_TAB *first_cache_tab;
 
 private:

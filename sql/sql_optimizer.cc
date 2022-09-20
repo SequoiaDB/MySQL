@@ -713,16 +713,14 @@ JOIN::optimize()
           &sort_by_tab->table()->keys_in_use_for_order_by, "ORDER BY"))
       {
         limit_for_join_cache = true;
+        limit_for_join_cache_need_sort = false;
         DBUG_PRINT("info", ("Using extra simple sort to optimize limit with "
                    "join cache"));
       }
       else
       {
-        if (add_sorting_to_table(const_tables, &order))
-        {
-          DBUG_RETURN(1);
-        }
         limit_for_join_cache = true;
+        limit_for_join_cache_need_sort = true;
         DBUG_PRINT("info", ("Using extra filesort to optimize limit with "
             "join cache"));
       }
