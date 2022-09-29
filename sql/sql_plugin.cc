@@ -3185,12 +3185,50 @@ static uchar *intern_sys_var_ptr(THD* thd, int offset, bool global_lock)
       (uint)offset > thd->variables.dynamic_variables_head)
   {
     /* Current THD only. Don't trigger resync on remote THD. */
-    if (current_thd == thd)
+    if (current_thd == thd){
       alloc_and_copy_thd_dynamic_variables(thd, global_lock);
+      return (uchar*) thd->variables.dynamic_variables_ptr + offset;
+    }
     else
       return (uchar*) global_system_variables.dynamic_variables_ptr + offset;
   }
 
+  mysql_rwlock_rdlock(&LOCK_system_variables_hash);
+
+  if (global_lock)
+    mysql_mutex_lock(&LOCK_global_system_variables);
+
+  if(!(*(thd->variables.dynamic_variables_ptr + offset)))
+  {
+    for (uint idx= 0; idx < malloced_string_type_sysvars_bookmark_hash.records; idx++)
+    {
+      sys_var_pluginvar *pi;
+      sys_var *var;
+      int varoff;
+      char **thdvar, **sysvar;
+      st_bookmark *v=
+        (st_bookmark*)my_hash_element(&malloced_string_type_sysvars_bookmark_hash,
+            idx);
+
+      if (v->offset != offset||
+          !(var= intern_find_sys_var(v->key + 1, v->name_len)) ||
+          !(pi= var->cast_pluginvar()) ||
+          v->key[0] != (pi->plugin_var->flags & PLUGIN_VAR_TYPEMASK))
+        continue;
+
+      varoff= *(int *) (pi->plugin_var + 1);
+      thdvar= (char **) (thd->variables.
+          dynamic_variables_ptr + varoff);
+      sysvar= (char **) (global_system_variables.
+          dynamic_variables_ptr + varoff);
+      *thdvar= NULL;
+      plugin_var_memalloc_session_update(thd, NULL, thdvar, *sysvar);
+    }
+  }
+  if (global_lock)
+    mysql_mutex_unlock(&LOCK_global_system_variables);
+
+  mysql_rwlock_unlock(&LOCK_system_variables_hash);
   return (uchar*)thd->variables.dynamic_variables_ptr + offset;
 }
 
