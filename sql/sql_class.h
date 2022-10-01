@@ -564,6 +564,7 @@ typedef struct system_variables
   ulong session_track_gtids;
 
   ulong max_execution_time;
+  uint server_ha_dml_max_retry_count;
 
   char *track_sysvars_ptr;
   my_bool session_track_schema;

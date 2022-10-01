@@ -6075,6 +6075,13 @@ static bool handle_sender_observe_commit_change(sys_var *, THD *, enum_var_type)
   DBUG_RETURN(false);
 }
 
+static Sys_var_uint Sys_server_ha_dml_max_retry_count(
+       "server_ha_dml_max_retry_count",
+       "The maximum number of retries required for current DML.",
+       HIDDEN SESSION_VAR(server_ha_dml_max_retry_count),
+       CMD_LINE(OPT_ARG), VALID_RANGE(0, 100),
+       DEFAULT(1), BLOCK_SIZE(1));
+
 static Sys_var_mybool Sys_replication_sender_observe_commit_only(
        "replication_sender_observe_commit_only",
        "Optional flag that allows for only calling back observer hooks at "

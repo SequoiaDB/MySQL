@@ -164,7 +164,7 @@ sys_var::sys_var(sys_var_chain *chain, const char *name_arg,
   memset(&option, 0, sizeof(option));
   option.name= name_arg;
   option.id= getopt_id;
-  option.comment= comment;
+  option.comment= (flags & HIDDEN) ? NULL : comment;
   option.arg_type= getopt_arg_type;
   option.value= (uchar **)global_var_ptr();
   option.def_value= def_val;
@@ -624,6 +624,12 @@ bool enumerate_sys_vars(THD *thd, Show_var_array *show_var_array,
       /* Don't show non-visible variables. */
       if (sysvar->not_visible())
         continue;
+
+      // don't show the hidden inner variables
+      if (sysvar->is_hidden())
+      {
+        continue;
+      }
 
       SHOW_VAR show_var;
       show_var.name=  sysvar->name.str;
