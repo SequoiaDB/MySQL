@@ -225,6 +225,11 @@ typedef int (*mysql_show_var_func)(MYSQL_THD, struct st_mysql_show_var*, char *)
 #define PLUGIN_VAR_NODEFAULT    0x4000 /* SET DEFAULT is prohibited */
 #define PLUGIN_VAR_MEMALLOC     0x8000 /* String needs memory allocated */
 #define PLUGIN_VAR_INVISIBLE    0x10000 /* Variable should not be shown */
+/*
+  Different from INVISIBLE that HIDDEN hides the help information, too.
+  However, SET and SELECT variable is allowed. Used by developing inner switch.
+*/
+#define PLUGIN_VAR_HIDDEN       0x20000 /* Variable should not be shown */
 
 struct st_mysql_sys_var;
 struct st_mysql_value;
@@ -278,7 +283,7 @@ typedef void (*mysql_var_update_func)(MYSQL_THD thd,
         (PLUGIN_VAR_READONLY | PLUGIN_VAR_NOSYSVAR | \
          PLUGIN_VAR_NOCMDOPT | PLUGIN_VAR_NOCMDARG | \
          PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | \
-         PLUGIN_VAR_NODEFAULT | PLUGIN_VAR_INVISIBLE)
+         PLUGIN_VAR_NODEFAULT | PLUGIN_VAR_INVISIBLE | PLUGIN_VAR_HIDDEN)
 
 #define MYSQL_PLUGIN_VAR_HEADER \
   int flags;                    \

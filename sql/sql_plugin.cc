@@ -289,7 +289,8 @@ public:
     :sys_var(chain, name_arg, plugin_var_arg->comment,
              (plugin_var_arg->flags & PLUGIN_VAR_THDLOCAL ? SESSION : GLOBAL) |
              (plugin_var_arg->flags & PLUGIN_VAR_READONLY ? READONLY : 0) |
-             (plugin_var_arg->flags & PLUGIN_VAR_INVISIBLE ? INVISIBLE : 0),
+             (plugin_var_arg->flags & PLUGIN_VAR_INVISIBLE ? INVISIBLE : 0) |
+             (plugin_var_arg->flags & PLUGIN_VAR_HIDDEN ? HIDDEN : 0),
              0, -1, NO_ARG, pluginvar_show_type(plugin_var_arg), 0, 0,
              VARIABLE_NOT_IN_BINLOG,
              (plugin_var_arg->flags & PLUGIN_VAR_NODEFAULT) ?
@@ -4169,7 +4170,7 @@ static int construct_options(MEM_ROOT *mem_root, st_plugin_int *tmp,
     convert_underscore_to_dash(optname, optnamelen);
 
     options->name= optname;
-    options->comment= opt->comment;
+    options->comment= (opt->flags & PLUGIN_VAR_HIDDEN) ? NULL : opt->comment;
     options->app_type= opt;
     options->id= 0;
 

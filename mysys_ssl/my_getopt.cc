@@ -1555,7 +1555,7 @@ void my_print_variables_ex(const struct my_option *options, FILE* file)
   {
     void *value= (optp->var_type & GET_ASK_ADDR ?
 		  (*getopt_get_addr)("", 0, optp, 0) : optp->value);
-    if (value)
+    if (value && optp->comment)
     {
       length= print_name(optp, file);
       for (; length < name_space; length++)

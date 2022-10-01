@@ -1261,7 +1261,7 @@ void retry_current_statement(THD *thd, Parser_state &parser_state,
 #ifndef EMBEDDED_LIBRARY
   if (ha_is_open())
   {
-    static const int MAX_RETRY_TIMES= 10;
+    const int MAX_RETRY_TIMES= thd->variables.server_ha_dml_max_retry_count;
     int times= 0;
     // If current statement contains routines, it will not be retried.
     // Because before the statement is executed, 'server_ha' will wait
