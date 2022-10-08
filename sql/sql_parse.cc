@@ -2759,6 +2759,9 @@ mysql_execute_command(THD *thd, bool first_level)
   /* set context for commands which do not use setup_tables */
   select_lex->context.resolve_in_table_list_only(select_lex->get_table_list());
 
+  /* reset THD::wrong_objects */
+  if (thd->wrong_objects.elements)
+    thd->wrong_objects.empty();
   thd->get_stmt_da()->reset_diagnostics_area();
   if ((thd->lex->keep_diagnostics != DA_KEEP_PARSE_ERROR) &&
       (thd->lex->keep_diagnostics != DA_KEEP_DIAGNOSTICS))
@@ -5266,6 +5269,10 @@ finish:
                                     "MYSQL_AUDIT_QUERY_NESTED_STATUS_END");
   }
 #endif /* !EMBEDDED_LIBRARY */
+  /* reset THD::wrong_objects after query */
+  if (thd->wrong_objects.elements)
+    thd->wrong_objects.empty();
+
   lex->unit->cleanup(true);
   /* Free tables */
   THD_STAGE_INFO(thd, stage_closing_tables);

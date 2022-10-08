@@ -1830,6 +1830,13 @@ bool mysql_drop_view(THD *thd, TABLE_LIST *views, enum_drop_mode drop_mode)
 	push_warning_printf(thd, Sql_condition::SL_NOTE,
 			    ER_BAD_TABLE_ERROR, ER(ER_BAD_TABLE_ERROR),
 			    tbl_name.c_ptr());
+        if (thd->wrong_objects.push_back(const_cast<char*>(view->db)) ||
+            thd->wrong_objects.push_back(const_cast<char*>(view->table_name)))
+        {
+          my_error(ER_OUT_OF_RESOURCES, MYF(0));
+          error= 1;
+          break;
+        }
 	continue;
       }
       if (type == FRMTYPE_TABLE)
@@ -1838,6 +1845,14 @@ bool mysql_drop_view(THD *thd, TABLE_LIST *views, enum_drop_mode drop_mode)
         {
           wrong_object_db= const_cast<char*>(view->db);
           wrong_object_name= const_cast<char*>(view->table_name);
+        }
+
+        if (thd->wrong_objects.push_back(const_cast<char*>(view->db)) ||
+            thd->wrong_objects.push_back(const_cast<char*>(view->table_name)))
+        {
+          my_error(ER_OUT_OF_RESOURCES, MYF(0));
+          error= 1;
+          break;
         }
       }
       else
@@ -1848,6 +1863,14 @@ bool mysql_drop_view(THD *thd, TABLE_LIST *views, enum_drop_mode drop_mode)
         non_existant_views.append(String(view->db,system_charset_info));
         non_existant_views.append('.');
         non_existant_views.append(String(view->table_name,system_charset_info));
+
+        if (thd->wrong_objects.push_back(const_cast<char*>(view->db)) ||
+            thd->wrong_objects.push_back(const_cast<char*>(view->table_name)))
+        {
+          my_error(ER_OUT_OF_RESOURCES, MYF(0));
+          error= 1;
+          break;
+        }
       }
       continue;
     }

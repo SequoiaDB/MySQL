@@ -2624,10 +2624,20 @@ int ha_delete_table(THD *thd, handlerton *table_type, const char *path,
       XXX: should we convert *all* errors to warnings here?
       What if the error is fatal?
     */
-    thd->push_internal_handler(&ha_delete_table_error_handler);
+    const char *engine_name= ha_resolve_storage_engine_name(table_type);
+    const int HA_ERR_SDB_RECYCLE_FULL = 40386;
+    if (0 != strcmp(engine_name, "SequoiaDB") ||
+        HA_ERR_SDB_RECYCLE_FULL != error)
+    {
+      thd->push_internal_handler(&ha_delete_table_error_handler);
+    }
     file->print_error(error, 0);
 
-    thd->pop_internal_handler();
+    if (0 != strcmp(engine_name, "SequoiaDB") ||
+        HA_ERR_SDB_RECYCLE_FULL != error)
+    {
+      thd->pop_internal_handler();
+    }
   }
   delete file;
 

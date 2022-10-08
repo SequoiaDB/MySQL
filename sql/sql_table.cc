@@ -2546,6 +2546,14 @@ int mysql_rm_table_no_locks(THD *thd, TABLE_LIST *tables, bool if_exists,
         push_warning_printf(thd, Sql_condition::SL_NOTE,
                             ER_BAD_TABLE_ERROR, ER(ER_BAD_TABLE_ERROR),
                             tbl_name.c_ptr());
+        if (thd->wrong_objects.push_back(const_cast<char*>(db)) ||
+            thd->wrong_objects.push_back(const_cast<char*>(table->table_name)))
+        {
+          my_error(ER_OUT_OF_RESOURCES, MYF(0));
+          wrong_tables.mem_free();
+          error= 1;
+          goto err;
+        }
       }
       else
       {
@@ -2620,6 +2628,15 @@ int mysql_rm_table_no_locks(THD *thd, TABLE_LIST *tables, bool if_exists,
       wrong_tables.append(String(db,system_charset_info));
       wrong_tables.append('.');
       wrong_tables.append(String(table->table_name,system_charset_info));
+
+      if (thd->wrong_objects.push_back(const_cast<char*>(db)) ||
+          thd->wrong_objects.push_back(const_cast<char*>(table->table_name)))
+      {
+        my_error(ER_OUT_OF_RESOURCES, MYF(0));
+        wrong_tables.mem_free();
+        error= 1;
+        goto err;
+      }
     }
     DBUG_PRINT("table", ("table: 0x%lx  s: 0x%lx", (long) table->table,
                          table->table ? (long) table->table->s : (long) -1));
