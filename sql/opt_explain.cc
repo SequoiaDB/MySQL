@@ -1120,6 +1120,21 @@ bool Explain_table_base::explain_extra_common(int quick_type,
 
   }
 
+  if (table && table->file && table->file->pushed_filesort)
+  {
+    const ORDER *pushed_filesort= table->file->pushed_filesort;
+    StringBuffer<64> buff(cs);
+    if (can_print_clauses())
+    {
+      buff.append('(');
+      select_lex->print_order(&buff, const_cast<ORDER *>(pushed_filesort),
+          enum_query_type(QT_TO_SYSTEM_CHARSET | QT_SHOW_SELECT_NUMBER));
+      buff.append(')');
+    }
+    if (push_extra(ET_USING_PUSHED_SORT, buff))
+      return true;
+  }
+
   return false;
 }
 

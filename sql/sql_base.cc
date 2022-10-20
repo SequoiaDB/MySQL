@@ -10477,3 +10477,15 @@ void close_log_table(THD *thd, Open_tables_backup *backup)
 /**
   @} (end of group Data_Dictionary)
 */
+
+bool is_sdb_engine_table(TABLE *table) {
+  if (!table || !table->file || !table->file->ht)
+  {
+    return false;
+  }
+  const char *engine_name =
+      ha_resolve_storage_engine_name(table->file->ht);
+
+  return (0 == strcmp("SequoiaDB", engine_name));
+}
+

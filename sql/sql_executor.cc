@@ -2576,6 +2576,129 @@ join_materialize_semijoin(QEP_TAB *tab)
 
 
 /**
+  @brief        Test whether the index sort is necessary if it is a single
+                distributed engine table.
+  @param[out]   need_order Whether the index sort is needed.
+  @return       true if the decision is done here, else false.
+*/
+bool
+QEP_TAB::test_single_table_index_use_order(bool &need_order) const
+{
+  bool test_done = false;
+  SELECT_LEX_UNIT *unit = NULL;
+  THD *thd = table()->in_use;
+  SELECT_LEX *select_lex = NULL;
+  bool is_single_table = false;
+
+  if (!thd)
+  {
+    assert(0);
+    test_done = false;
+    goto done;
+  }
+
+  if ((select_lex = thd->lex->select_lex) && (unit = select_lex->master_unit()))
+  {
+    if (!unit->next_unit() && unit->is_simple() &&
+        !select_lex->first_inner_unit() &&
+        1 == select_lex->join_list->elements &&
+        !((TABLE_LIST *)select_lex->join_list->head())->nested_join)
+    {
+      is_single_table = true;
+    }
+    else
+    {
+      is_single_table = false;
+    }
+  }
+
+  /*
+    Only test index sort when
+    1) It is a SELECT statement. UDI plan to be analyzed in the future.
+    2) The SELECT has only 1 query block and 1 table in the block. Other cases
+       are not analyzed.
+    3) The table is of distributed storage engine. Only SequoiaDB right now.
+  */
+  if (!(SQLCOM_SELECT == thd->lex->sql_command && // 1)
+        is_single_table && // 2)
+        is_sdb_engine_table(table()))) // 3)
+  {
+    test_done = false;
+    goto done;
+  }
+
+  /*
+    Always use index sort if
+    1) index sort is needed by GROUP BY / ORDER BY.
+    2) ROLLUP. Because the flow has not been analyzed yet.
+    3) The hidden switch optimizer_index_sort_prune is off. This hidden switch
+       is designed for safety, to be removed in the future.
+  */
+  if (JOIN::ordered_index_void != join()->ordered_index_usage ||
+      ROLLUP::STATE_NONE != join()->rollup.state ||
+      !thd->variables.optimizer_index_sort_prune)
+  {
+    need_order = true;
+    test_done = true;
+    goto done;
+  }
+
+  if (quick_optim())
+  {
+    /*
+      Set it as false by default to try filesort pushdown. Actually it is
+      independent of JOIN_TAB::sorted. Quick select classes are using
+      QUICK_SELECT_I::need_sorted_output() to notify engine the sorted, not
+      JOIN_TAB::sorted. Generally the QUICK_SELECT_I::need_sorted_output() is
+      set at test_if_skip_sort_order().
+    */
+    need_order = false;
+    test_done = true;
+    goto done;
+  }
+
+  switch (type())
+  {
+    case JT_INDEX_SCAN:
+    case JT_REF:
+    case JT_EQ_REF:
+    case JT_REF_OR_NULL:
+    case JT_SYSTEM:
+    case JT_CONST:
+    case JT_ALL:
+    {
+      /* All these has no sort needed or read without index */
+      need_order = false;
+      break;
+    }
+    case JT_RANGE:
+    case JT_INDEX_MERGE:
+    {
+      /*
+        Do nothing. They are belong to quick select classes. Generally, here
+        should never be arrived. Because quick select is with JT_ALL some how.
+      */
+      break;
+    }
+    case JT_FT:
+    case JT_UNIQUE_SUBQUERY:
+    case JT_INDEX_SUBQUERY:
+    case JT_UNKNOWN:
+    default:
+    {
+      assert(0);
+      /* Do nothing. These access path is impossible when it is single table */
+      break;
+    }
+  }
+  test_done = true;
+done:
+  return test_done;
+}
+
+
+
+/**
   Check if access to this JOIN_TAB has to retrieve rows
   in sorted order as defined by the ordered index
   used to access this table.
@@ -2583,6 +2706,13 @@ join_materialize_semijoin(QEP_TAB *tab)
 bool
 QEP_TAB::use_order() const
 {
+  bool need_order = true;
+  bool is_done = test_single_table_index_use_order(need_order);
+  if (is_done)
+  {
+    return need_order;
+  }
+
   /*
     No need to require sorted access for single row reads
     being performed by const- or EQ_REF-accessed tables.
@@ -2602,7 +2732,7 @@ QEP_TAB::use_order() const
     LooseScan strategy for semijoin requires sorted
     results even if final result is not to be sorted.
   */
-  if (position()->sj_strategy == SJ_OPT_LOOSE_SCAN)
+  if (position() && position()->sj_strategy == SJ_OPT_LOOSE_SCAN)
     return true;
 
   /* Fall through: Results don't have to be sorted */

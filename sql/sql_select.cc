@@ -3606,11 +3606,15 @@ bool JOIN::make_tmp_tables_info()
       Exception: LooseScan strategy for semijoin requires
       sorted access even if final result is not to be sorted.
     */
+    // TODO: Comment this assert, because some 'use_order' cases may be not
+    // discovered. It is safe to keeping the order.
+    /*
     assert(
            !(ordered_index_usage == ordered_index_void &&
              !plan_is_const() && 
              qep_tab[const_tables].position()->sj_strategy != SJ_OPT_LOOSE_SCAN &&
              qep_tab[const_tables].use_order()));
+    */
 
     /* Change sum_fields reference to calculated fields in tmp_table */
     assert(items1.is_null());
@@ -3918,9 +3922,12 @@ bool JOIN::make_tmp_tables_info()
         m_select_limit == HA_POS_ERROR (we need a full table scan)
         unit->select_limit_cnt == 1 (we only need one row in the result set)
       */
-      sort_tab->filesort->limit=
-        (has_group_by || (primary_tables > curr_tmp_table + 1)) ?
-         m_select_limit : unit->select_limit_cnt;
+      if (sort_tab->filesort)
+      {
+        sort_tab->filesort->limit=
+          (has_group_by || (primary_tables > curr_tmp_table + 1)) ?
+           m_select_limit : unit->select_limit_cnt;
+      }
     }
     if (!plan_is_const() &&
         !qep_tab[const_tables].table()->sort.io_cache)
@@ -3974,10 +3981,24 @@ JOIN::add_sorting_to_table(uint idx, ORDER_with_src *sort_order)
   ASSERT_BEST_REF_IN_JOIN_ORDER(this);
   explain_flags.set(sort_order->src, ESP_USING_FILESORT);
   QEP_TAB *const tab= &qep_tab[idx]; 
-  tab->filesort=
-    new (thd->mem_root) Filesort(tab, *sort_order, HA_POS_ERROR);
-  if (!tab->filesort)
-    return true;
+  ORDER *order = sort_order->order;
+
+  if (thd->optimizer_switch_flag(OPTIMIZER_SWITCH_FILESORT_PUSHDOWN) &&
+      !tab->use_order() &&
+      tab->table() && tab->table()->file &&
+      !tab->table()->file->filesort_push(order))
+  {
+    tab->table()->file->pushed_filesort= order;
+  }
+  else
+  {
+    tab->filesort=
+      new (thd->mem_root) Filesort(tab, *sort_order, HA_POS_ERROR);
+    if (!tab->filesort)
+      return true;
+    tab->read_first_record= join_init_read_record;
+  }
+
   {
     if (tab->ref().key >= 0)
     {
@@ -4011,9 +4032,9 @@ JOIN::add_sorting_to_table(uint idx, ORDER_with_src *sort_order)
           return true; /* purecov: inspected */
         tab->set_quick(q); // We keep it displaid as "ref".
       }
+      tab->read_first_record= join_init_read_record;
     }
   }
-  tab->read_first_record= join_init_read_record;
   return false;
 }
 

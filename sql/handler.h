@@ -56,6 +56,7 @@ class Partition_handler;
 typedef my_bool (*qc_engine_callback)(THD *thd, char *table_key,
                                       uint key_length,
                                       ulonglong *engine_data);
+typedef struct st_order ORDER;
 
 
 // the following is for checking tables
@@ -2275,6 +2276,7 @@ public:
 
   bool is_join_bka;
   uint key_parts;
+  const ORDER *pushed_filesort;
 
 private:
   /** Internal state of the batch instrumentation. */
@@ -2380,6 +2382,7 @@ public:
     {
       is_join_bka = false;
       key_parts = 0;
+      pushed_filesort = NULL;
       DBUG_PRINT("info",
                  ("handler created F_UNLCK %d F_RDLCK %d F_WRLCK %d",
                   F_UNLCK, F_RDLCK, F_WRLCK));
@@ -3291,6 +3294,8 @@ public:
    pushed_idx_cond_keyno= MAX_KEY;
    in_range_check_pushed_down= false;
  }
+
+ virtual bool filesort_push(const ORDER* order) { return true; }
 
   /**
     Reports #tables included in pushed join which this

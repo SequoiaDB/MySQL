@@ -32,6 +32,7 @@ static const char *traditional_extra_tags[ET_total]=
   NULL,                                // ET_none
   "Using temporary",                   // ET_USING_TEMPORARY
   "Using filesort",                    // ET_USING_FILESORT
+  "Using pushed sort",                 // ET_USING_PUSHED_SORT
   "Using index condition",             // ET_USING_INDEX_CONDITION
   "Using",                             // ET_USING
   "Range checked for each record",     // ET_RANGE_CHECKED_FOR_EACH_RECORD

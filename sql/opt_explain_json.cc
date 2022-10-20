@@ -33,6 +33,7 @@ static const char *json_extra_tags[ET_total]=
   NULL,                                 // ET_none
   "using_temporary_table",              // ET_USING_TEMPORARY
   "using_filesort",                     // ET_USING_FILESORT
+  "pushed_sort",                        // ET_USING_PUSHED_SORT
   "index_condition",                    // ET_USING_INDEX_CONDITION
   NULL,                                 // ET_USING
   "range_checked_for_each_record",      // ET_RANGE_CHECKED_FOR_EACH_RECORD

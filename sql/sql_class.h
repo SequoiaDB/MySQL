@@ -583,6 +583,7 @@ typedef struct system_variables
   my_bool show_old_temporals;
   my_bool sdb_sql_pushdown;
   uint optimizer_limit_pushdown_threshold;
+  my_bool optimizer_index_sort_prune;
 } SV;
 
 

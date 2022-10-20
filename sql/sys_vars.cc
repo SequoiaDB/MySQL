@@ -2849,7 +2849,7 @@ static const char *optimizer_switch_names[]=
   "materialization", "semijoin", "loosescan", "firstmatch", "duplicateweedout",
   "subquery_materialization_cost_based",
   "use_index_extensions", "condition_fanout_filter", "derived_merge",
-  "prefer_ordering_index", "default", NullS
+  "prefer_ordering_index", "filesort_pushdown", "default", NullS
 };
 static Sys_var_flagset Sys_optimizer_switch(
        "optimizer_switch",
@@ -6111,7 +6111,7 @@ static Sys_var_mybool Sys_sequoiadb_push_down_join(
        SESSION_VAR(sdb_sql_pushdown), CMD_LINE(OPT_ARG),
        DEFAULT(FALSE));
 
-static Sys_var_uint Sys_extra_sort_threshold(
+static Sys_var_uint Sys_optimizer_limit_pushdown_threshold(
        "optimizer_limit_pushdown_threshold",
        "The threshold to control the limit pushdown on join with join buffer."
        "The defination is: `value = sort_table_records / limit_number`."
@@ -6122,4 +6122,10 @@ static Sys_var_uint Sys_extra_sort_threshold(
        SESSION_VAR(optimizer_limit_pushdown_threshold),
        CMD_LINE(OPT_ARG), VALID_RANGE(0, UINT_MAX),
        DEFAULT(100), BLOCK_SIZE(1));
+
+static Sys_var_mybool Sys_optimizer_index_sort_prune(
+      "optimizer_index_sort_prune",
+      "Prune the unnecessary index sort to improve performance.",
+      HIDDEN SESSION_VAR(optimizer_index_sort_prune), CMD_LINE(OPT_ARG),
+      DEFAULT(TRUE));
 

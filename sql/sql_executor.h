@@ -487,6 +487,8 @@ public:
 
   bool pfs_batch_update(JOIN *join);
 
+  bool test_single_table_index_use_order(bool &need_sort) const;
+
 public:
   /// Pointer to table reference
   TABLE_LIST *table_ref;

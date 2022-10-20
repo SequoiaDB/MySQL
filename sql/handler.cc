@@ -8169,6 +8169,8 @@ int handler::ha_reset()
   table->default_column_bitmaps();
   /* Reset information about pushed engine conditions */
   pushed_cond= NULL;
+  /* Reset information about pushed engine filesort */
+  pushed_filesort= NULL;
   /* Reset information about pushed index conditions */
   cancel_pushed_idx_cond();
 
