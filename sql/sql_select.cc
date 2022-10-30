@@ -3983,7 +3983,7 @@ JOIN::add_sorting_to_table(uint idx, ORDER_with_src *sort_order)
   QEP_TAB *const tab= &qep_tab[idx]; 
   ORDER *order = sort_order->order;
 
-  if (thd->optimizer_switch_flag(OPTIMIZER_SWITCH_FILESORT_PUSHDOWN) &&
+  if (thd->optimizer_switch_flag(OPTIMIZER_SWITCH_OPTIMIZER_SORT_PUSHDOWN) &&
       !tab->use_order() &&
       tab->table() && tab->table()->file &&
       !tab->table()->file->filesort_push(order))

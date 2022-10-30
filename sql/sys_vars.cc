@@ -2849,7 +2849,7 @@ static const char *optimizer_switch_names[]=
   "materialization", "semijoin", "loosescan", "firstmatch", "duplicateweedout",
   "subquery_materialization_cost_based",
   "use_index_extensions", "condition_fanout_filter", "derived_merge",
-  "prefer_ordering_index", "filesort_pushdown", "default", NullS
+  "prefer_ordering_index", "optimizer_sort_pushdown", "default", NullS
 };
 static Sys_var_flagset Sys_optimizer_switch(
        "optimizer_switch",
@@ -6127,5 +6127,5 @@ static Sys_var_mybool Sys_optimizer_index_sort_prune(
       "optimizer_index_sort_prune",
       "Prune the unnecessary index sort to improve performance.",
       HIDDEN SESSION_VAR(optimizer_index_sort_prune), CMD_LINE(OPT_ARG),
-      DEFAULT(TRUE));
+      DEFAULT(FALSE));
 
