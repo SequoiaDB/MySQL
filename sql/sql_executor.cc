@@ -2643,7 +2643,7 @@ QEP_TAB::test_single_table_index_use_order(bool &need_order) const
     goto done;
   }
 
-  if (quick_optim())
+  if (quick())
   {
     /*
       Set it as false by default to try filesort pushdown. Actually it is
