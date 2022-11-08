@@ -1150,7 +1150,9 @@ bool Explain_table_base::explain_tmptable_and_filesort(bool need_tmp_table_arg,
 
   if (need_tmp_table_arg && push_extra(ET_USING_TEMPORARY))
     return true;
-  if (need_sort_arg && push_extra(ET_USING_FILESORT))
+  bool is_filesort_pushed = table && table->file && table->file->pushed_filesort;
+  if (need_sort_arg && !is_filesort_pushed &&
+      push_extra(ET_USING_FILESORT))
     return true;
   return false;
 }
