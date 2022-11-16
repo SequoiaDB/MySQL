@@ -1761,6 +1761,34 @@ static Sys_var_ulong Sys_interactive_timeout(
        CMD_LINE(REQUIRED_ARG),
        VALID_RANGE(1, LONG_TIMEOUT), DEFAULT(NET_WAIT_TIMEOUT), BLOCK_SIZE(1));
 
+vio_keepalive_opts opt_vio_keepalive={0,0,0};
+
+static Sys_var_uint Sys_keepalive_time(
+       "tcp_keepalive_time",
+       "Timeout, in milliseconds, with no activity until the first TCP keep-alive packet is sent."
+       "If set to 0, system dependent default is used.",
+       GLOBAL_VAR(opt_vio_keepalive.idle),
+       CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, INT_MAX32/1000), DEFAULT(0),
+       BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_keepalive_interval(
+       "tcp_keepalive_interval",
+       "The interval, in seconds, between when successive keep-alive packets are sent "
+       "if no acknowledgement is received."
+       "If set to 0, system dependent default is used.",
+       GLOBAL_VAR(opt_vio_keepalive.interval),
+       CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, INT_MAX32/1000), DEFAULT(0),
+       BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_keepalive_probes(
+       "tcp_keepalive_probes",
+       "The number of unacknowledged probes to send before considering the connection dead and "
+       "notifying the application layer."
+       "If set to 0, system dependent default is used.",
+       GLOBAL_VAR(opt_vio_keepalive.probes),
+       CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, INT_MAX32/1000), DEFAULT(0),
+       BLOCK_SIZE(1));
+
 static Sys_var_ulong Sys_join_buffer_size(
        "join_buffer_size",
        "The size of the buffer that is used for full joins",

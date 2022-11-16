@@ -108,6 +108,13 @@ enum enum_vio_io_event
   VIO_IO_EVENT_CONNECT
 };
 
+struct vio_keepalive_opts
+{
+  int interval;
+  int idle;
+  int probes;
+};
+
 #define VIO_LOCALHOST 1                         /* a localhost connection */
 #define VIO_BUFFERED_READ 2                     /* use buffered read */
 #define VIO_READ_BUFFER_SIZE 16384              /* size of read buffer */
@@ -139,6 +146,7 @@ size_t  vio_write(Vio *vio, const uchar * buf, size_t size);
 int vio_fastsend(Vio *vio);
 /* setsockopt SO_KEEPALIVE at SOL_SOCKET level, when possible */
 int vio_keepalive(Vio *vio, my_bool	onoff);
+int vio_set_keepalive_options(Vio * vio, const struct vio_keepalive_opts *opts);
 /* Whenever we should retry the last read/write operation. */
 my_bool vio_should_retry(Vio *vio);
 /* Check that operation was timed out */

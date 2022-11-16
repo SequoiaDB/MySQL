@@ -49,7 +49,7 @@
 
 using std::min;
 using std::max;
-
+extern vio_keepalive_opts opt_vio_keepalive;
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
 /*
   Without SSL the handshake consists of one packet. This packet
@@ -664,6 +664,7 @@ static int check_connection(THD *thd)
     memset(&net->vio->remote, 0, sizeof(net->vio->remote));
   }
   vio_keepalive(net->vio, TRUE);
+  vio_set_keepalive_options(net->vio, &opt_vio_keepalive);
 
   if (thd->get_protocol_classic()->get_packet()->alloc(
       thd->variables.net_buffer_length))

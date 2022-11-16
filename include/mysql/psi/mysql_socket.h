@@ -986,7 +986,6 @@ inline_mysql_socket_setsockopt
     return result;
   }
 #endif
-
   /* Non instrumented code */
   result= setsockopt(mysql_socket.fd, level, optname, optval, optlen);
 
