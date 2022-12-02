@@ -76,6 +76,7 @@
 using std::max;
 using std::min;
 using binary_log::checksum_crc32;
+extern bool ha_is_open();
 
 #define ER_THD_OR_DEFAULT(thd,X) ((thd) ? ER_THD(thd, X) : ER_DEFAULT(X))
 
@@ -3348,6 +3349,7 @@ void promote_first_timestamp_column(List<Create_field> *column_definitions)
   @param key                Key to be checked.
   @param key_info           Key meta-data info.
   @param alter_info         List of columns and indexes to create.
+  @param engine_name        Storage engine name.
 
   @retval false           Ok.
   @retval true            Error.
@@ -3355,7 +3357,8 @@ void promote_first_timestamp_column(List<Create_field> *column_definitions)
 static bool check_duplicate_key(THD *thd, const char *error_schema_name,
                                 const char *error_table_name,
                                 Key *key, KEY *key_info,
-                                Alter_info *alter_info)
+                                Alter_info *alter_info,
+                                const char *engine_name)
 {
   /*
     We only check for duplicate indexes if it is requested and the
@@ -3435,6 +3438,14 @@ static bool check_duplicate_key(THD *thd, const char *error_schema_name,
                           key_info->name,
                           error_schema_name,
                           error_table_name);
+      // Report error for SequoiaDB engine
+      if (engine_name && 0 == strcmp("SequoiaDB", engine_name) && ha_is_open())
+      {
+        my_printf_error(ER_DUP_INDEX, "Duplicate index '%-.64s' "
+                        "defined on the table '%-.64s.%-.64s'.",
+                        MYF(0), key_info->name, error_schema_name,
+                        error_table_name);
+      }
       if (thd->is_error())
       {
         // An error was reported.
@@ -4507,7 +4518,8 @@ mysql_prepare_create_table(THD *thd, const char *error_schema_name,
 
     // Check if a duplicate index is defined.
   if (check_duplicate_key(thd, error_schema_name, error_table_name,
-                          key, key_info, alter_info))
+                          key, key_info, alter_info,
+                          ha_resolve_storage_engine_name(file->ht)))
       DBUG_RETURN(true);
 
     key_info++;
