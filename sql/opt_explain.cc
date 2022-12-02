@@ -1135,6 +1135,25 @@ bool Explain_table_base::explain_extra_common(int quick_type,
       return true;
   }
 
+  if (tab)
+  {
+    uint flag = tab->table()->file->get_engine_optim_flag();
+    if (flag & (ENGINE_OPTIM_DIRECT_GROUP_BY | ENGINE_OPTIM_DIRECT_ORDER_BY))
+    {
+      if ((flag & ENGINE_OPTIM_DIRECT_GROUP_BY) &&
+          push_extra(ET_USING_PUSHED_GROUP_BY))
+        return true;
+
+      if ((flag & ENGINE_OPTIM_DIRECT_ORDER_BY) &&
+          push_extra(ET_USING_PUSHED_ORDER_BY))
+        return true;
+
+      if (JT_ALL == tab->type() &&
+          push_extra(ET_STORAGE_HANDLE_ACCESS_TYPE))
+        return true;
+    }
+  }
+
   return false;
 }
 
@@ -1431,7 +1450,17 @@ bool Explain_join::explain_id()
 
 bool Explain_join::explain_join_type()
 {
-  fmt->entry()->col_join_type.set_const(join_type_str[tab ? tab->type() : JT_ALL]);
+  if (tab && JT_ALL == tab->type() &&
+      (tab->table()->file->get_engine_optim_flag() &
+          (ENGINE_OPTIM_DIRECT_GROUP_BY | ENGINE_OPTIM_DIRECT_ORDER_BY)))
+  {
+    // Storage engine handle access plan
+    fmt->entry()->col_join_type.cleanup();
+  }
+  else
+  {
+    fmt->entry()->col_join_type.set_const(join_type_str[tab ? tab->type() : JT_ALL]);
+  }
   return false;
 }
 

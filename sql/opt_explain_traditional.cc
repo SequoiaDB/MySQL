@@ -61,7 +61,10 @@ static const char *traditional_extra_tags[ET_total]=
   "unique row not found",              // ET_UNIQUE_ROW_NOT_FOUND
   "Impossible ON condition",           // ET_IMPOSSIBLE_ON_CONDITION
   "",                                  // ET_PUSHED_JOIN
-  "Ft_hints:"                          // ET_FT_HINTS
+  "Ft_hints:",                         // ET_FT_HINTS
+  "Using pushed GROUP BY",             // ET_USING_PUSHED_GROUP_BY
+  "Using pushed ORDER BY",             // ET_USING_PUSHED_ORDER_BY
+  "Storage engine handles access type" // ET_STORAGE_HANDLE_ACCESS_TYPE
 };
 
 static const char *mod_type_name[]=

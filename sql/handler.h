@@ -538,6 +538,18 @@ namespace AQP {
 /** ENCRYPTION="Y" used during table create. */
 #define HA_CREATE_USED_ENCRYPT          (1L << 27)
 
+
+
+/*
+  Flags set in handler::get_engine_optim_flag(). To tell optimizer what optimization
+  jobs that storage engine(such as SequoiaDB) did.
+*/
+// Set for direct_sort
+#define ENGINE_OPTIM_DIRECT_ORDER_BY    (1ULL << 1)
+#define ENGINE_OPTIM_DIRECT_GROUP_BY    (1ULL << 2)
+
+
+
 /*
   These structures are used to pass information from a set of SQL commands
   on add/drop/change tablespace definitions to the proper hton.
@@ -3295,6 +3307,9 @@ public:
    in_range_check_pushed_down= false;
  }
 
+ /**
+    Push the filesort down to storage engine
+ */
  virtual bool filesort_push(const ORDER* order) { return true; }
 
   /**
@@ -3480,6 +3495,11 @@ public:
  {
    notify_table_changed();
  }
+
+ /**
+   Return the flag to show what special optimization jobs done by storage engine
+ */
+ virtual uint get_engine_optim_flag() { return 0; }
 
 
 protected:

@@ -73,6 +73,9 @@ enum Extra_tag
   ET_IMPOSSIBLE_ON_CONDITION,
   ET_PUSHED_JOIN,
   ET_FT_HINTS,
+  ET_USING_PUSHED_GROUP_BY,
+  ET_USING_PUSHED_ORDER_BY,
+  ET_STORAGE_HANDLE_ACCESS_TYPE,
   //------------------------------------
   ET_total
 };
