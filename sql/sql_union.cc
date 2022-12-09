@@ -303,11 +303,14 @@ bool Query_result_union_direct::send_data(List<Item> &items)
 {
   if (limit == 0)
     return false;
-  limit--;
-  if (offset)
+  if (!unit->offset_limit_cnt)
   {
-    offset--;
-    return false;
+    limit--;
+    if (offset)
+    {
+      offset--;
+      return false;
+    }
   }
 
   if (fill_record(thd, table, table->field, items, NULL, NULL))
