@@ -2496,6 +2496,9 @@ bool create_ondisk_from_heap(THD *thd, TABLE *table,
   TABLE_SHARE share;
   const char *save_proc_info;
   int write_err;
+
+  bool test_last_dup=false; //test if heap to innodb is duplicate in last record
+
   DBUG_ENTER("create_ondisk_from_heap");
 
   if (table->s->db_type() != heap_hton || 
@@ -2600,18 +2603,28 @@ bool create_ondisk_from_heap(THD *thd, TABLE *table,
       goto err;
   }
   /* copy row that filled HEAP table */
-  if ((write_err=new_table.file->ha_write_row(table->record[0])))
-  {
-    if (!new_table.file->is_ignorable_error(write_err) ||
-	!ignore_last_dup)
-      goto err;
-    if (is_duplicate)
-      *is_duplicate= TRUE;
-  }
-  else
-  {
-    if (is_duplicate)
-      *is_duplicate= FALSE;
+
+  DBUG_EXECUTE_IF("heap2innodb_last_record_dup",
+                  {
+                    test_last_dup=true;
+                    write_err=HA_ERR_FOUND_DUPP_KEY;
+                  });
+  if(!test_last_dup){
+    if ((write_err=new_table.file->ha_write_row(table->record[0])))
+    {
+      if (!new_table.file->is_ignorable_error(write_err) ||
+	  !ignore_last_dup)
+        goto err;
+      if (is_duplicate)
+        *is_duplicate= TRUE;
+    }
+    else
+    {
+      if (is_duplicate)
+        *is_duplicate= FALSE;
+    }
+  }else{
+    *is_duplicate=TRUE;
   }
 
   /* remove heap table and change to use on-disk table */

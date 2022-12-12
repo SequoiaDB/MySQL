@@ -3366,6 +3366,7 @@ static enum_nested_loop_state
 end_write(JOIN *join, QEP_TAB *const qep_tab, bool end_of_records)
 {
   TABLE *const table= qep_tab->table();
+  bool is_dup = false;
   DBUG_ENTER("end_write");
 
   if (join->thd->killed)			// Aborted by user
@@ -3385,20 +3386,25 @@ end_write(JOIN *join, QEP_TAB *const qep_tab, bool end_of_records)
     {
       int error;
       join->found_records++;
-
+      
       if (!check_unique_constraint(table))
         goto end; // skip it
 
       if ((error=table->file->ha_write_row(table->record[0])))
       {
         if (table->file->is_ignorable_error(error))
-	  goto end;
-	if (create_ondisk_from_heap(join->thd, table,
+          goto end;
+        if (create_ondisk_from_heap(join->thd, table,
                                     tmp_tbl->start_recinfo,
                                     &tmp_tbl->recinfo,
-				    error, TRUE, NULL))
-	  DBUG_RETURN(NESTED_LOOP_ERROR);        // Not a table_is_full error
-	table->s->uniques=0;			// To ensure rows are the same
+                                    error, TRUE, &is_dup))
+        {
+          DBUG_RETURN(NESTED_LOOP_ERROR);        // Not a table_is_full error
+        }
+        if(is_dup){
+          goto end;
+        } 
+        table->s->uniques=0;			// To ensure rows are the same
       }
       if (++qep_tab->send_records >=
             tmp_tbl->end_write_records &&
