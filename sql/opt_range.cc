@@ -11569,7 +11569,10 @@ int QUICK_SELECT_DESC::get_next()
       handler know where to end the scan in order to avoid that the
       ICP implemention continues to read past the range boundary.
     */
-    if (file->pushed_idx_cond)
+    /*
+      SequoiaDB has not implement ICP yet, but it needs the range boundary, too
+    */
+    if (file->pushed_idx_cond || is_sdb_engine_table(head))
     {
       if (!eqrange_all_keyparts)
       {

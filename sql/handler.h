@@ -2220,7 +2220,7 @@ public:
     RANGE_SCAN_ASC,
     RANGE_SCAN_DESC
   };
-private:
+protected:
   /*
     Storage space for the end range value. Should only be accessed using
     the end_range pointer. The content is invalid when end_range is NULL.
