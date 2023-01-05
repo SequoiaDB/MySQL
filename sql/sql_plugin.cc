@@ -3194,14 +3194,13 @@ static uchar *intern_sys_var_ptr(THD* thd, int offset, bool global_lock)
       return (uchar*) global_system_variables.dynamic_variables_ptr + offset;
   }
 
+  mysql_rwlock_rdlock(&LOCK_system_variables_hash);
+
+  if (global_lock)
+    mysql_mutex_lock(&LOCK_global_system_variables);
 
   if(!(*(thd->variables.dynamic_variables_ptr + offset)))
   {
-    mysql_rwlock_rdlock(&LOCK_system_variables_hash);
-
-    if (global_lock)
-      mysql_mutex_lock(&LOCK_global_system_variables);
-    
     for (uint idx= 0; idx < malloced_string_type_sysvars_bookmark_hash.records; idx++)
     {
       sys_var_pluginvar *pi;
@@ -3226,12 +3225,11 @@ static uchar *intern_sys_var_ptr(THD* thd, int offset, bool global_lock)
       *thdvar= NULL;
       plugin_var_memalloc_session_update(thd, NULL, thdvar, *sysvar);
     }
-    
-    if (global_lock)
-      mysql_mutex_unlock(&LOCK_global_system_variables);
-
-    mysql_rwlock_unlock(&LOCK_system_variables_hash);
   }
+  if (global_lock)
+    mysql_mutex_unlock(&LOCK_global_system_variables);
+
+  mysql_rwlock_unlock(&LOCK_system_variables_hash);
   return (uchar*)thd->variables.dynamic_variables_ptr + offset;
 }
 
