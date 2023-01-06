@@ -1666,6 +1666,8 @@ original_step:
 
     parser_state.m_input.m_has_digest = true;
 
+    const char *original_query= thd->query().str;
+    size_t query_length= (size_t)(packet_end - thd->query().str);
     uint err_no = 0;
     char err_text[MYSQL_ERRMSG_SIZE] = {0};
     char m_ret_sqlstate[SQLSTATE_LENGTH+1] = {0};
@@ -1675,8 +1677,7 @@ original_step:
     mysql_parse(thd, &parser_state);
 
     // Retry current statement if got specical errors
-    retry_current_statement(thd, parser_state, thd->query().str,
-                            (size_t)(packet_end - thd->query().str),
+    retry_current_statement(thd, parser_state, original_query, query_length,
                             command);
     while (!thd->killed && (parser_state.m_lip.found_semicolon != NULL) &&
            ! thd->is_error())
