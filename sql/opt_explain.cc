@@ -1049,8 +1049,11 @@ bool Explain_table_base::explain_extra_common(int quick_type,
       Calling multi_range_read_init() can potentially be costly, so it
       is not done when executing an EXPLAIN. We therefore simulate
       its effect here:
+
+      However, SequoiaDB engine can alternatively support the sort.
     */
-    if (mrr_flags & HA_MRR_SORTED && !(mrr_flags & HA_MRR_SUPPORT_SORTED))
+    if (mrr_flags & HA_MRR_SORTED && !(mrr_flags & HA_MRR_SUPPORT_SORTED) &&
+        !is_sdb_engine_table(tab->table()))
       mrr_flags|= HA_MRR_USE_DEFAULT_IMPL;
 
     if (!(mrr_flags & HA_MRR_USE_DEFAULT_IMPL) && push_extra(ET_USING_MRR))

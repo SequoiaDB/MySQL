@@ -1934,6 +1934,19 @@ void get_sweep_read_cost(TABLE *table, ha_rows nrows, bool interrupted,
 */
 #define HA_MRR_SUPPORT_SORTED 256
 
+/*
+  The following bits are reserved for use by MRR implementation.
+*/
+#define HA_MRR_IMPLEMENTATION_FLAG1 512U
+#define HA_MRR_IMPLEMENTATION_FLAG2 1024U
+#define HA_MRR_IMPLEMENTATION_FLAG3 2048U
+#define HA_MRR_IMPLEMENTATION_FLAG4 4096U
+#define HA_MRR_IMPLEMENTATION_FLAG5 8192U
+#define HA_MRR_IMPLEMENTATION_FLAG6 16384U
+
+#define HA_MRR_IMPLEMENTATION_FLAGS \
+  (512U | 1024U | 2048U | 4096U | 8192U | 16384U)
+
 
 class ha_statistics
 {
