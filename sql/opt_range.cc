@@ -13923,6 +13923,7 @@ int QUICK_GROUP_MIN_MAX_SELECT::reset(void)
 
   seen_first_key= false;
   head->set_keyread(TRUE); /* We need only the key attributes */
+  head->file->extra(HA_EXTRA_GROUP_MIN_MAX);
   /*
     Request ordered index access as usage of ::index_last(), 
     ::index_first() within QUICK_GROUP_MIN_MAX_SELECT depends on it.
