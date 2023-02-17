@@ -6193,7 +6193,7 @@ ER_PLUGIN_DELETE_BUILTIN
   eng "Built-in plugins cannot be deleted"
   ger "Eingebaute Plugins können nicht gelöscht werden"
 WARN_PLUGIN_BUSY
-  eng "Plugin is busy and will be uninstalled on shutdown"
+  eng "Reinstalling the plugin before instance shutdown may result in unpredictable result"
   ger "Plugin wird verwendet und wird erst beim Herunterfahren deinstalliert"
 ER_VARIABLE_IS_READONLY
   eng "%s variable '%s' is read-only. Use SET %s to assign the value"
