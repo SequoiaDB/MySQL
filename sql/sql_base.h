@@ -361,6 +361,7 @@ extern Field *view_ref_found;
 extern HASH table_def_cache;
 
 bool is_sdb_engine_table(TABLE *table);
+bool handle_if_result_limit_exceed(THD *thd);
 
 /**
   clean/setup table fields and map.

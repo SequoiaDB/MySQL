@@ -139,6 +139,13 @@ enum enum_binlog_format {
   BINLOG_FORMAT_UNSPEC=3  ///< thd_binlog_format() returns it when binlog is closed
 };
 
+enum enum_sql_select_result_limit_exceed_handling{
+  SQL_RESULT_LIMIT_EXCEED_HANDLING_NONE= 0,
+  SQL_RESULT_LIMIT_EXCEED_HANDLING_WARNING= 1,
+  SQL_RESULT_LIMIT_EXCEED_HANDLING_ERROR= 2
+};
+
+
 /* Bits for different SQL modes modes (including ANSI mode) */
 #define MODE_REAL_AS_FLOAT              1
 #define MODE_PIPES_AS_CONCAT            2
@@ -584,6 +591,8 @@ typedef struct system_variables
   my_bool sdb_sql_pushdown;
   uint optimizer_limit_pushdown_threshold;
   my_bool optimizer_index_sort_prune;
+  ulong sql_select_result_limit_exceed_handling;
+  ha_rows sql_select_result_limit;
 } SV;
 
 

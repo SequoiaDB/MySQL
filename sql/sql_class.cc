@@ -2753,7 +2753,15 @@ bool Query_result_send::send_data(List<Item> &items)
   }
 
   thd->inc_sent_row_count(1);
-  DBUG_RETURN(protocol->end_row());
+  if(protocol->end_row()){
+    DBUG_RETURN(TRUE);  
+  }
+
+  if(handle_if_result_limit_exceed(thd)){
+    DBUG_RETURN(TRUE);
+  }
+
+  DBUG_RETURN(FALSE);
 }
 
 bool Query_result_send::send_eof()

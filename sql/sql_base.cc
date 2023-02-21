@@ -10489,3 +10489,29 @@ bool is_sdb_engine_table(TABLE *table) {
   return (0 == strcmp("SequoiaDB", engine_name));
 }
 
+bool handle_if_result_limit_exceed(THD *thd){
+  /*
+     Make a judgment the first time the threshold is reached, and
+     no further processing will be done to avoid repeated printing
+     of warnings.
+   */
+  if(thd->variables.sql_select_result_limit == thd->get_sent_row_count() &&
+      thd->lex->sql_command == SQLCOM_SELECT){
+    if(thd->variables.sql_select_result_limit_exceed_handling 
+       == SQL_RESULT_LIMIT_EXCEED_HANDLING_ERROR){
+      my_printf_error(ER_USER_LIMIT_REACHED,
+          "The matched records is greater than or equal to the"
+          " sql_select_result_limit.",MYF(0));
+      return true;
+    }else if(thd->variables.sql_select_result_limit_exceed_handling 
+             == SQL_RESULT_LIMIT_EXCEED_HANDLING_WARNING) {
+      push_warning_printf(thd, Sql_condition::SL_WARNING,
+          ER_USER_LIMIT_REACHED,
+          "The matched records is greater than or equal to the"
+          " sql_select_result_limit");
+      return false;
+    }
+  }
+  return false;
+}
+
