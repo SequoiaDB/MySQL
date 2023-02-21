@@ -166,6 +166,26 @@ int Program::execute(std::vector<std::string> positional_options)
 
   Mysql::Tools::Base::Mysql_query_runner* runner= connection_provider
          ->get_runner(message_handler);
+  if (NULL == runner)
+  {
+    delete message_handler;
+    message_handler = NULL;
+    delete connection_provider;
+    connection_provider = NULL;
+    return 0;
+  }
+  if (NULL == runner->get_low_level_connection())
+  {
+    /* purecov: begin inspected */
+    delete runner;
+    runner = NULL;
+    delete message_handler;
+    message_handler = NULL;
+    delete connection_provider;
+    connection_provider = NULL;
+    return 0;
+    /* purecov: end */
+  }
   ulong server_version =
     mysql_get_server_version(runner->get_low_level_connection());
   if (server_version < 50646)

@@ -49,6 +49,8 @@ Mysql::Tools::Base::Mysql_query_runner*
       message_handler)
 {
   MYSQL* connection= m_connection_factory->create_connection();
+  if (NULL == connection)
+    return NULL;
   Message_handler_wrapper* message_wrapper=
     new Message_handler_wrapper(message_handler);
   I_callable<int64, const Mysql::Tools::Base::Message_data&>* callback

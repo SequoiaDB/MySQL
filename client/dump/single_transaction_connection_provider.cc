@@ -54,6 +54,8 @@ Single_transaction_connection_provider::Single_transaction_connection_provider(
   {
     Mysql::Tools::Base::Mysql_query_runner* runner=
       Abstract_connection_provider::create_new_runner(message_handler);
+    if (NULL == runner || NULL == runner->get_low_level_connection())
+      break;
     /*
      To get a consistent backup we lock the server and flush all the tables.
      This is done with FLUSH TABLES WITH READ LOCK (FTWRL).

@@ -35,6 +35,18 @@ Mysql::Tools::Base::Mysql_query_runner*
   if (runner == NULL)
   {
     runner= this->create_new_runner(message_handler);
+    if (runner == NULL)
+    {
+      return NULL;
+    }
+    if (NULL == runner->get_low_level_connection())
+    {
+      /* purecov: begin inspected */
+      delete runner;
+      runner = NULL;
+      return NULL;
+      /* purecov: end */
+    }
     runner->run_query("SET SQL_QUOTE_SHOW_CREATE= 1");
     /*
       Do not allow server to make any timezone conversion even if it
