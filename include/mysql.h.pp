@@ -114,6 +114,10 @@ enum enum_mysql_set_option
   MYSQL_OPTION_MULTI_STATEMENTS_ON,
   MYSQL_OPTION_MULTI_STATEMENTS_OFF
 };
+enum enum_refresh_options
+{
+  REFRESH_TABLE_STATS=0
+};
 enum enum_session_state_type
 {
   SESSION_TRACK_SYSTEM_VARIABLES,

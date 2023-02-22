@@ -205,7 +205,14 @@ enum ha_extra_function {
   /** Do bka based join in handler.*/
   HA_EXTRA_BKA_BASED_JOIN,
   /** Inform handler that we will execute a group min max plan */
-  HA_EXTRA_GROUP_MIN_MAX
+  HA_EXTRA_GROUP_MIN_MAX,
+  /* Start to collect stats in the first phase of refresh tables stats.*/
+  HA_EXTRA_REFRESH_TO_COLLECT_SHARE_STATS,
+  /*
+     Do replace the handler::share from handler::share_newly_obtain in the
+     secend phase of refresh tables stats.
+  */
+  HA_EXTRA_REFRESH_TO_REPLACE_SHARE_STATS
 };
 
 /* Compatible option, to be deleted in 6.0 */

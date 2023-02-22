@@ -121,7 +121,6 @@ using std::max;
 
 #include "sys_vars.h"
 extern bool ha_is_open();
-
 /**
   @defgroup Runtime_Environment Runtime Environment
   @{
@@ -2689,6 +2688,80 @@ static inline void binlog_gtid_end_transaction(THD *thd)
   DBUG_VOID_RETURN;
 }
 
+/*
+  Rrefresh tables [tbl_name] stats.
+  1. open table with MDL_SHARE lock.
+  2. call handler::info to collect table stats and index statistics.
+  3. upgrade the table MDL_SHARE lock to MDL_SHARED_NO_WRITE to block other
+  UDIs
+  4. replace the handler::share with handler::share_newly_obtain.
+ */
+static bool refresh_tables_share_stats(THD *thd, TABLE_LIST *all_tables)
+{
+  bool error = false;
+  TABLE *refresh_table = NULL;
+  // Add SHARED lock for the table in the collecting phase of refresh.
+  error = open_tables_for_query(thd, all_tables, MYSQL_OPEN_FORCE_SHARED_MDL);
+
+  if (error)
+  {
+    return error;
+  }
+
+  for (TABLE_LIST *table_list = all_tables; table_list;
+       table_list = table_list->next_local)
+  {
+    refresh_table = table_list->table;
+    /*
+      Ignore refreshing (1) views and (2) non-sequoiadb engine tables.
+   .*/
+    if (table_list->is_view() || !refresh_table ||  // (1)
+        !is_sdb_engine_table(refresh_table) ||      // (2)
+        !refresh_table->file)
+    {
+      continue;
+    }
+
+    if (refresh_table->file)
+    {
+      refresh_table->file->extra(HA_EXTRA_REFRESH_TO_COLLECT_SHARE_STATS);
+      refresh_table->file->info(HA_STATUS_VARIABLE);
+    }
+  }
+  /*
+    After the new share stats collecting, upgrade every table's lock to
+    MDL_SHARED_NO_WRITE to block data modifying.
+  */
+  for (TABLE_LIST *table_list = all_tables; table_list;
+       table_list = table_list->next_local) {
+    refresh_table = table_list->table;
+    if (table_list->is_view() || !refresh_table ||
+        !is_sdb_engine_table(refresh_table) || !refresh_table->mdl_ticket ||
+        !refresh_table->file)
+    {
+      continue;
+    }
+
+    if (thd->mdl_context.upgrade_shared_lock(
+                         refresh_table->mdl_ticket, MDL_SHARED_NO_WRITE,
+                         thd->variables.lock_wait_timeout))
+    {
+      error = true;
+      return error;
+    }
+    /*
+      After the new share stats collecting, tell the handler to replace the
+      handler::share using new share stats
+    */
+    refresh_table->file->extra(HA_EXTRA_REFRESH_TO_REPLACE_SHARE_STATS);
+    /* remove the already refreshed table metadata lock requests. */
+    if (table_list->mdl_request.ticket)
+    {
+      table_list->mdl_request.ticket->downgrade_lock(MDL_SHARED_READ);
+    }
+  }
+  return error;
+}
 
 /**
   Execute command saved in thd and lex->sql_command.
@@ -4434,6 +4507,136 @@ end_with_restore_list:
         my_ok(thd);
     } 
     
+    break;
+  }
+  case SQLCOM_REFRESH:
+  {
+    bool result = false;
+    if (!all_tables)
+    {
+      TABLE_SHARE *share = NULL;
+      SELECT_LEX *sel = NULL;
+      sel = lex->select_lex;
+      assert(sel);
+
+      mysql_mutex_lock(&LOCK_open);
+      for (uint idx = 0; idx < table_def_cache.records; idx++ )
+      {
+        share = (TABLE_SHARE*) my_hash_element(&table_def_cache, idx);
+        if (share)
+        {
+          /*
+            Ignore refreshing the old share being expelled from the table
+            definition cache and non-sequoiadb engine tables.
+          */
+          if (share->has_old_version() ||
+                (0 != strcmp("SequoiaDB", ha_resolve_storage_engine_name(
+                                              share->db_type()))))
+          {
+            continue;
+          }
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+          const char* db_name = share->db.str;
+          Security_context *sctx = thd->security_context();
+          if ((check_access(thd, SELECT_ACL, db_name, &thd->col_access, NULL,
+                            0, 1) ||
+              (!thd->col_access && check_grant_db(thd, db_name))) &&
+              !sctx->check_access(DB_ACLS | SHOW_DB_ACL, true) &&
+              !acl_get(sctx->host().str, sctx->ip().str,
+                       sctx->priv_user().str, db_name, 0))
+          {
+            my_error(ER_DBACCESS_DENIED_ERROR, MYF(0),
+                     thd->security_context()->priv_user().str,
+                     thd->security_context()->priv_host().str, db_name);
+            mysql_mutex_unlock(&LOCK_open);
+            goto error;
+          }
+          /* don't have any privileges */ 
+          if (!(thd->col_access & TABLE_ACLS))
+          {
+            TABLE_LIST table_list;
+            table_list.db = share->db.str;
+            table_list.db_length = share->db.length;
+            table_list.table_name = share->table_name.str;
+            table_list.table_name_length = share->table_name.length;
+            table_list.grant.privilege = thd->col_access;
+            if (check_grant(thd, TABLE_ACLS, &table_list, TRUE, 1, TRUE))
+            {
+              my_error(ER_TABLEACCESS_DENIED_ERROR, MYF(0), "REFRESH",
+                       thd->security_context()->priv_user().str,
+                       thd->security_context()->host_or_ip().str,
+                       table_list.table_name);
+              mysql_mutex_unlock(&LOCK_open);
+              goto error;
+            }
+          }
+#endif
+          Table_ident *table_ident = NULL;
+          table_ident =
+                new Table_ident(thd, to_lex_cstring(share->db),
+                                to_lex_cstring(share->table_name), TRUE);
+          if (NULL == table_ident)
+          {
+            my_error(ER_OUTOFMEMORY, MYF(0), "%s.%s", share->db.str,
+                     share->table_name.str);
+            mysql_mutex_unlock(&LOCK_open);
+            goto error;
+          }
+          if (!sel->add_table_to_list(thd, table_ident, 0, 0, TL_READ,
+                                      MDL_SHARED_READ))
+          {
+            mysql_mutex_unlock(&LOCK_open);
+            goto error;
+          }
+        }
+      }
+      mysql_mutex_unlock(&LOCK_open);
+
+      TABLE_LIST *all_tables = sel->table_list.first;
+      result = refresh_tables_share_stats(thd, all_tables);
+      if (result)
+      {
+        goto error;
+      }
+    } else {
+      for (TABLE_LIST *table_list = all_tables; table_list;
+           table_list = table_list->next_local)
+      {
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+        const char* db_name = table_list->db;
+        Security_context *sctx = thd->security_context();
+        if ((check_access(thd, SELECT_ACL, db_name, &thd->col_access, NULL, 0,
+                          1) ||
+             (!thd->col_access && check_grant_db(thd, db_name))) &&
+            !sctx->check_access(DB_ACLS | SHOW_DB_ACL, true) &&
+            !acl_get(sctx->host().str, sctx->ip().str, sctx->priv_user().str,
+                     db_name, 0)) {
+          my_error(ER_DBACCESS_DENIED_ERROR, MYF(0),
+                   thd->security_context()->priv_user().str,
+                   thd->security_context()->priv_host().str, db_name);
+          goto error;
+        }
+        /* don't have any privileges */ 
+        if (!(thd->col_access & TABLE_ACLS))
+        {
+          if (check_grant(thd, TABLE_ACLS, table_list, TRUE, 1, TRUE))
+          {
+            my_error(ER_TABLEACCESS_DENIED_ERROR, MYF(0), "REFRESH",
+                     thd->security_context()->priv_user().str,
+                     thd->security_context()->host_or_ip().str,
+                     table_list->table_name);
+            goto error;
+          }
+        }
+#endif
+      }
+      result = refresh_tables_share_stats(thd, all_tables);
+      if (result)
+      {
+        goto error;
+      }
+    }
+    my_ok(thd);
     break;
   }
   case SQLCOM_KILL:

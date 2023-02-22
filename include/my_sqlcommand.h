@@ -179,6 +179,7 @@ enum enum_sql_command {
   SQLCOM_SHOW_CREATE_USER,
   SQLCOM_SHUTDOWN,
   SQLCOM_ALTER_INSTANCE,
+  SQLCOM_REFRESH,
   /* This should be the last !!! */
   SQLCOM_END
 };

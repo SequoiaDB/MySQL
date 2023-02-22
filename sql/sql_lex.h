@@ -3177,6 +3177,7 @@ public:
   USER_RESOURCES mqh;
   LEX_RESET_SLAVE reset_slave_info;
   ulong type;
+  enum_refresh_options refresh_option;
   /*
     This variable is used in post-parse stage to declare that sum-functions,
     or functions which have sense only if GROUP BY is present, are allowed.

@@ -472,6 +472,14 @@ enum enum_mysql_set_option
 };
 
 /*
+  Refresh optioms
+*/
+enum enum_refresh_options
+{
+  REFRESH_TABLE_STATS=0
+};
+
+/*
   Type of state change information that the server can include in the Ok
   packet.
   Note : 1) session_state_type shouldn't go past 255 (i.e. 1-byte boundary).

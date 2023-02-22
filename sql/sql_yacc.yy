@@ -926,6 +926,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, YYLTYPE **c, ulong *yystacksize);
 %token  REDO_BUFFER_SIZE_SYM
 %token  REDUNDANT_SYM
 %token  REFERENCES                    /* SQL-2003-R */
+%token  REFRESH_SYM
 %token  REGEXP
 %token  RELAY
 %token  RELAYLOG_SYM
@@ -1023,6 +1024,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, YYLTYPE **c, ulong *yystacksize);
 %token  STACKED_SYM                   /* SQL-2003-N */
 %token  STARTING
 %token  STARTS_SYM
+%token  STATS_SYM
 %token  START_SYM                     /* SQL-2003-R */
 %token  STATS_AUTO_RECALC_SYM
 %token  STATS_PERSISTENT_SYM
@@ -1326,7 +1328,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, YYLTYPE **c, ulong *yystacksize);
 %type <NONE>
         create change drop
         truncate rename
-        show describe load alter optimize keycache preload flush
+        show describe load alter optimize keycache preload flush refresh
         reset purge begin commit rollback savepoint release
         slave master_def master_defs master_file_def slave_until_opts
         repair analyze check start checksum filter_def filter_defs
@@ -1373,6 +1375,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, YYLTYPE **c, ulong *yystacksize);
         definer_opt no_definer definer get_diagnostics
         alter_user_command password_expire
         group_replication
+        refresh_options
 END_OF_INPUT
 
 %type <NONE> call sp_proc_stmts sp_proc_stmts1 sp_proc_stmt
@@ -1695,6 +1698,7 @@ statement:
         | preload
         | prepare
         | purge
+        | refresh
         | release
         | rename
         | repair
@@ -12583,6 +12587,24 @@ purge:
           }
           purge_options
           {}
+        ;
+
+refresh:
+          REFRESH_SYM 
+          {
+            LEX *lex=Lex;
+            lex->sql_command= SQLCOM_REFRESH;
+          }
+          table_or_tables
+          {
+            YYPS->m_lock_type= TL_READ_NO_INSERT;
+            YYPS->m_mdl_type= MDL_SHARED_READ;
+          }
+          opt_table_list refresh_options {}
+        ;
+
+refresh_options:
+          STATS_SYM { Lex->refresh_option= REFRESH_TABLE_STATS; }
         ;
 
 purge_options:

@@ -1125,13 +1125,13 @@ private:
   MDL_ticket *find_ticket(MDL_request *mdl_req,
                           enum_mdl_duration *duration);
   void release_locks_stored_before(enum_mdl_duration duration, MDL_ticket *sentinel);
-  void release_lock(enum_mdl_duration duration, MDL_ticket *ticket);
   bool try_acquire_lock_impl(MDL_request *mdl_request,
                              MDL_ticket **out_ticket);
   void materialize_fast_path_locks();
   inline bool fix_pins();
 
 public:
+  void release_lock(enum_mdl_duration duration, MDL_ticket *ticket);
   void find_deadlock();
 
   bool visit_subgraph(MDL_wait_for_graph_visitor *dvisitor);
