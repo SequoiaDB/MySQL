@@ -36,6 +36,7 @@
 #include "sql_join_buffer.h"
 #include "sql_tmp_table.h"  // instantiate_tmp_table()
 #include "opt_trace.h"
+#include "sql_base.h"
 
 #include <algorithm>
 using std::max;
@@ -2722,7 +2723,9 @@ JOIN_CACHE_BKA::init_join_matching_records(RANGE_SEQ_IF *seq_funcs, uint ranges)
     }
   }
   /* the handler to do bka based join.*/
-  file->extra(HA_EXTRA_BKA_BASED_JOIN);
+  if (is_sdb_engine_table(qep_tab->table())) {
+    file->extra(HA_EXTRA_BKA_BASED_JOIN);
+  }
   return
     file->multi_range_read_init(seq_funcs, (void*) this, ranges,
                                 mrr_mode, &mrr_buff);
