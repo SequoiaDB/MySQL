@@ -12594,6 +12594,11 @@ refresh:
           {
             LEX *lex=Lex;
             lex->sql_command= SQLCOM_REFRESH;
+            if (lex->sphead)
+            {
+              my_error(ER_SP_BADSTATEMENT, MYF(0), "REFRESH TABLES");
+              MYSQL_YYABORT;
+            }
           }
           table_or_tables
           {
