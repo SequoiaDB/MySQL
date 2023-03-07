@@ -4572,21 +4572,49 @@ end_with_restore_list:
           }
 #endif
           Table_ident *table_ident = NULL;
-          table_ident =
-                new Table_ident(thd, to_lex_cstring(share->db),
-                                to_lex_cstring(share->table_name), TRUE);
-          if (NULL == table_ident)
+          LEX_CSTRING *db_str = NULL;
+          LEX_CSTRING *table_str = NULL;
+
+          db_str = thd->make_lex_string(db_str, share->db.str,
+                                        share->db.length, true);
+          if (NULL == db_str)
           {
+            /* purecov: begin tested */
             my_error(ER_OUTOFMEMORY, MYF(0), "%s.%s", share->db.str,
                      share->table_name.str);
             mysql_mutex_unlock(&LOCK_open);
             goto error;
+            /* purecov: end */
           }
+          table_str = thd->make_lex_string(table_str, share->table_name.str,
+                                           share->table_name.length, true);
+          if (NULL == table_str)
+          {
+            /* purecov: begin tested */
+            my_error(ER_OUTOFMEMORY, MYF(0), "%s.%s", share->db.str,
+                     share->table_name.str);
+            mysql_mutex_unlock(&LOCK_open);
+            goto error;
+            /* purecov: end */
+          }
+          table_ident = new Table_ident(thd, *db_str, *table_str, TRUE);
+          if (NULL == table_ident)
+          {
+            /* purecov: begin tested */
+            my_error(ER_OUTOFMEMORY, MYF(0), "%s.%s", share->db.str,
+                     share->table_name.str);
+            mysql_mutex_unlock(&LOCK_open);
+            goto error;
+            /* purecov: end */
+          }
+
           if (!sel->add_table_to_list(thd, table_ident, 0, 0, TL_READ,
                                       MDL_SHARED_READ))
           {
+            /* purecov: begin tested */
             mysql_mutex_unlock(&LOCK_open);
             goto error;
+            /* purecov: end */
           }
         }
       }
