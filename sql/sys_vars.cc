@@ -6152,27 +6152,32 @@ static Sys_var_uint Sys_optimizer_limit_pushdown_threshold(
        DEFAULT(100), BLOCK_SIZE(1));
 
 static Sys_var_mybool Sys_optimizer_index_sort_prune(
-      "optimizer_index_sort_prune",
-      "Prune the unnecessary index sort to improve performance.",
-      HIDDEN SESSION_VAR(optimizer_index_sort_prune), CMD_LINE(OPT_ARG),
-      DEFAULT(FALSE));
+       "optimizer_index_sort_prune",
+       "Prune the unnecessary index sort to improve performance.",
+       HIDDEN SESSION_VAR(optimizer_index_sort_prune), CMD_LINE(OPT_ARG),
+       DEFAULT(FALSE));
 
 static const char *sql_select_result_limit_exceed_handling_names[]=
        {"NONE","WARNING","ERROR", 0};      
 
-static Sys_var_enum Sys_sql_select_result_limit_exceed_handling(                
-    "sql_select_result_limit_exceed_handling","Action performed when the result "
-    "set exceeds sql_select_result_limit: "                                     
-    "NONE: returns the result set; WARNING: returns a result set with waning "  
-    "information; ERROR: does not return a result set,but outputs an error.", 
-    SESSION_VAR(sql_select_result_limit_exceed_handling),CMD_LINE(OPT_ARG),     
-    sql_select_result_limit_exceed_handling_names,DEFAULT(0)                    
-    );                                                                          
+static Sys_var_enum Sys_sql_select_result_limit_exceed_handling(
+       "sql_select_result_limit_exceed_handling","Action performed when the result "
+       "set exceeds sql_select_result_limit: "
+       "NONE: returns the result set; WARNING: returns a result set with waning "
+       "information; ERROR: does not return a result set,but outputs an error.",
+       SESSION_VAR(sql_select_result_limit_exceed_handling), CMD_LINE(OPT_ARG),
+       sql_select_result_limit_exceed_handling_names, DEFAULT(0));
 
-static Sys_var_harows Sys_sql_select_result_limit(                              
-    "sql_select_result_limit","This variable is used with "
-    "sql_select_result_limit_exceed_handling as a threshold for the "
-    "number of results.",  
-    SESSION_VAR(sql_select_result_limit),CMD_LINE(OPT_ARG),                     
-    VALID_RANGE(0, HA_POS_ERROR), DEFAULT(HA_POS_ERROR), BLOCK_SIZE(1)          
-    );                                                                          
+static Sys_var_harows Sys_sql_select_result_limit(
+       "sql_select_result_limit","This variable is used with "
+       "sql_select_result_limit_exceed_handling as a threshold for the "
+       "number of results.",
+       SESSION_VAR(sql_select_result_limit), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, HA_POS_ERROR), DEFAULT(HA_POS_ERROR), BLOCK_SIZE(1));
+
+static Sys_var_mybool Sys_refresh_all_cached_tables_supported(
+       "refresh_all_cached_tables_supported",
+       "Whether refreshing all cached tables without specifying table name is "
+       "supported or not.",
+       HIDDEN SESSION_VAR(refresh_all_cached_tables_supported),
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE));

@@ -4517,8 +4517,12 @@ end_with_restore_list:
       TABLE_SHARE *share = NULL;
       SELECT_LEX *sel = NULL;
       sel = lex->select_lex;
+      if (!thd->variables.refresh_all_cached_tables_supported)
+      {
+        my_error(ER_NOT_SUPPORTED_YET, MYF(0), "REFRESH TABLES STATS.");
+        goto error;
+      }
       assert(sel);
-
       mysql_mutex_lock(&LOCK_open);
       for (uint idx = 0; idx < table_def_cache.records; idx++ )
       {

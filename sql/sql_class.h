@@ -593,6 +593,9 @@ typedef struct system_variables
   my_bool optimizer_index_sort_prune;
   ulong sql_select_result_limit_exceed_handling;
   ha_rows sql_select_result_limit;
+  /* Whether refreshing all cached tables without specifying table name is
+     supported or not */
+  my_bool refresh_all_cached_tables_supported;
 } SV;
 
 
