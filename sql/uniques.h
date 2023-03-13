@@ -62,6 +62,16 @@ public:
       DBUG_RETURN(1);
     DBUG_RETURN(!tree_insert(&tree, ptr, 0, tree.custom_arg));
   }
+  inline bool unique_add(void *ptr, int &is_dups)
+  {
+    DBUG_ENTER("unique_add");
+    DBUG_PRINT("info", ("tree %u - %lu", tree.elements_in_tree, max_elements));
+    TREE_ELEMENT *element = NULL;
+    if (tree.elements_in_tree > max_elements && flush())
+      DBUG_RETURN(1);
+    element = tree_insert_with_info(&tree, ptr, 0, tree.custom_arg, &is_dups);
+    DBUG_RETURN(!element);
+  }
 
   bool get(TABLE *table);
 
