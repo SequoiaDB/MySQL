@@ -6180,4 +6180,4 @@ static Sys_var_mybool Sys_refresh_all_cached_tables_supported(
        "Whether refreshing all cached tables without specifying table name is "
        "supported or not.",
        HIDDEN SESSION_VAR(refresh_all_cached_tables_supported),
-       CMD_LINE(OPT_ARG), DEFAULT(TRUE));
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));

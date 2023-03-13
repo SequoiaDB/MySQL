@@ -574,6 +574,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_OPTIMIZE]|=        CF_PREOPEN_TMP_TABLES;
   sql_command_flags[SQLCOM_REPAIR]|=          CF_PREOPEN_TMP_TABLES;
   sql_command_flags[SQLCOM_PRELOAD_KEYS]|=    CF_PREOPEN_TMP_TABLES;
+  sql_command_flags[SQLCOM_REFRESH]|=         CF_PREOPEN_TMP_TABLES;
   sql_command_flags[SQLCOM_ASSIGN_TO_KEYCACHE]|= CF_PREOPEN_TMP_TABLES;
 
   /*
@@ -2713,11 +2714,15 @@ static bool refresh_tables_share_stats(THD *thd, TABLE_LIST *all_tables)
   {
     refresh_table = table_list->table;
     /*
-      Ignore refreshing (1) views and (2) non-sequoiadb engine tables.
+      Ignore refreshing:
+      (1) views
+      (2) non-sequoiadb engine tables
+      (3) temporary tables
    .*/
     if (table_list->is_view() || !refresh_table ||  // (1)
         !is_sdb_engine_table(refresh_table) ||      // (2)
-        !refresh_table->file)
+        !refresh_table->file ||
+        find_temporary_table(thd, table_list))      // (3)
     {
       continue;
     }
@@ -2737,7 +2742,7 @@ static bool refresh_tables_share_stats(THD *thd, TABLE_LIST *all_tables)
     refresh_table = table_list->table;
     if (table_list->is_view() || !refresh_table ||
         !is_sdb_engine_table(refresh_table) || !refresh_table->mdl_ticket ||
-        !refresh_table->file)
+        !refresh_table->file || find_temporary_table(thd, table_list))
     {
       continue;
     }
