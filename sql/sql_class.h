@@ -582,6 +582,7 @@ typedef struct system_variables
   */
   my_bool show_old_temporals;
   my_bool sdb_sql_pushdown;
+  my_bool server_ha_retry_prepared_stmt;
 } SV;
 
 

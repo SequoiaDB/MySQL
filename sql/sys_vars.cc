@@ -6101,3 +6101,9 @@ static Sys_var_mybool Sys_sequoiadb_push_down_join(
        "Whether push down join query or not.",
        SESSION_VAR(sdb_sql_pushdown), CMD_LINE(OPT_ARG),
        DEFAULT(FALSE));
+
+static Sys_var_mybool Sys_server_ha_retry_prepared_stmt(
+       "server_ha_retry_prepared_stmt",
+       "Whether to re-execute DML statement using binary protocol",
+       HIDDEN SESSION_VAR(server_ha_retry_prepared_stmt),
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE));

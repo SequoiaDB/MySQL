@@ -1526,6 +1526,68 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
                         com_data->com_stmt_execute.flags,
                         com_data->com_stmt_execute.params,
                         com_data->com_stmt_execute.params_length);
+#ifndef EMBEDDED_LIBRARY
+    bool cl_version_not_match_error= false;
+    // Check if it's collection version not match error
+    Diagnostics_area *da = thd->get_stmt_da();
+    if (thd->is_error() && da && (ER_GET_ERRNO == da->mysql_errno())) {
+      const char *thd_err_msg= da->message_text();
+      static const char *CL_VERSION_ERR= "Got error 40357 from storage engine";
+      // Handle "Got error 40357 from storage engine" error
+      if (thd_err_msg && 0 == strcmp(CL_VERSION_ERR, thd_err_msg)) {
+        cl_version_not_match_error= true;
+      }
+    }
+
+    // Retry prepared statement using binary protocol
+    ulong stmt_id= com_data->com_stmt_execute.stmt_id;
+    Prepared_statement *stmt= thd->stmt_map.find(stmt_id);
+    if (thd->variables.server_ha_retry_prepared_stmt &&
+        cl_version_not_match_error &&
+        stmt && stmt->lex && ha_is_open() && thd->is_error() &&
+        (!stmt->lex->sroutines_list.elements))
+    {
+      // Always use LEX in prepared statement to check if
+      // current stmt need to be retried
+      LEX *saved_lex= thd->lex;
+      const int MAX_RETRY_TIMES= thd->variables.server_ha_dml_max_retry_count;
+      int times= 0;
+      // If current statement contains routines, it will not be retried.
+      // Because before the statement is executed, 'server_ha' will wait
+      // objects contained in the statement to be updated(updated by
+      // replay thread) to its latest state.
+      bool need_retry= (!stmt->lex->sroutines_list.elements);
+      while (thd->is_error() && need_retry && times++ < MAX_RETRY_TIMES)
+      {
+        uint mysql_errno= thd->get_stmt_da()->mysql_errno();
+        // Prepare retry flag for current statement. If retry flag is
+        // set, error in thd will be reset
+        thd->lex= stmt->lex;
+        mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG),
+                           0, C_STRING_WITH_LEN("SetDMLRetryFlag"));
+        thd->lex= saved_lex;
+        need_retry= (mysql_errno && !thd->get_stmt_da()->is_set());
+        if (need_retry)
+        {
+          mysqld_stmt_execute(thd, com_data->com_stmt_execute.stmt_id,
+                              com_data->com_stmt_execute.flags,
+                              com_data->com_stmt_execute.params,
+                              com_data->com_stmt_execute.params_length);
+        }
+        // Reset retry flag
+        thd->lex = stmt->lex;
+        mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG),
+                           0, C_STRING_WITH_LEN("ResetDMLRetryFlag"));
+        thd->lex= saved_lex;
+      }
+      // Clear checked objects cache
+      thd->lex = stmt->lex;
+      mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG),
+                         0, C_STRING_WITH_LEN("ResetCheckedObjects"));
+      thd->lex= saved_lex;
+      thd->is_result_set_started= FALSE;
+    }
+#endif
     break;
   }
   case COM_STMT_FETCH:
