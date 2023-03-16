@@ -6181,3 +6181,10 @@ static Sys_var_mybool Sys_refresh_all_cached_tables_supported(
        "supported or not.",
        HIDDEN SESSION_VAR(refresh_all_cached_tables_supported),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+static Sys_var_mybool Sys_skip_ref_null_if_null_reject(
+       "skip_ref_null_if_null_reject",
+       "Whether optimizer skips the plan that ref on a NULL value if has null "
+       "rejecting predicate on the same keypart.",
+       HIDDEN SESSION_VAR(skip_ref_null_if_null_reject),
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE));

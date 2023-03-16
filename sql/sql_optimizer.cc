@@ -8405,6 +8405,21 @@ update_ref_and_keys(THD *thd, Key_use_array *keyuse,JOIN_TAB *join_tab,
       {
         if (use->key == prev->key && use->table_ref == prev->table_ref)
         {
+          /*
+            Quick fix the wrong result of SequoiaDB for impossible condition
+            which has null rejecting condtion and IS NULL, such as 
+            ```
+            WHERE t1.a = t2.a AND t1.a IS NULL
+            ```
+            Here ignore the IS NULL keyuse to avoid runtime problems.
+          */
+          if (thd->variables.skip_ref_null_if_null_reject &&
+              prev->keypart == use->keypart && found_eq_constant &&
+              prev->val->real_item()->type() == Item::NULL_ITEM &&
+              use->null_rejecting) {
+            --save_pos; // pop the IS NULL keyuse
+            found_eq_constant = 0;
+          }
           if (prev->keypart+1 < use->keypart ||
               (prev->keypart == use->keypart && found_eq_constant))
             continue; /* remove */

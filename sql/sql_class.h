@@ -596,6 +596,7 @@ typedef struct system_variables
   /* Whether refreshing all cached tables without specifying table name is
      supported or not */
   my_bool refresh_all_cached_tables_supported;
+  my_bool skip_ref_null_if_null_reject;
 } SV;
 
 
