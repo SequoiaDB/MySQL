@@ -597,6 +597,7 @@ typedef struct system_variables
      supported or not */
   my_bool refresh_all_cached_tables_supported;
   my_bool skip_ref_null_if_null_reject;
+  my_bool server_ha_retry_prepared_stmt;
 } SV;
 
 
