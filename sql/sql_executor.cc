@@ -2586,10 +2586,16 @@ QEP_TAB::test_single_table_index_use_order(bool &need_order) const
 {
   bool test_done = false;
   SELECT_LEX_UNIT *unit = NULL;
-  THD *thd = table()->in_use;
+  THD *thd = NULL;
   SELECT_LEX *select_lex = NULL;
   bool is_single_table = false;
 
+  if (!table()) {
+    test_done = false;
+    goto done;
+  }
+
+  thd = table()->in_use;
   if (!thd)
   {
     assert(0);
