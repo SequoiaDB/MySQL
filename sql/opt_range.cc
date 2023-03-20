@@ -11360,13 +11360,36 @@ int QUICK_RANGE_SELECT::get_next_prefix(uint prefix_length,
       assert(cur_prefix != NULL);
       result= file->ha_index_read_map(record, cur_prefix, keypart_map,
                                       HA_READ_AFTER_KEY);
-      if (result || last_range->max_keypart_map == 0)
-        DBUG_RETURN(result);
+      /*
+        This is a quick fix. GROUP MIN MAX algorithm is to be refactored.
+        If it is SequoiaDB engine, since end_range of current range has been
+        pushed down, HA_ERR_KEY_NOT_FOUND doesn't mean end of file but end
+        of current range. If there are more ranges to read, we should read
+        the next.
 
-      key_range previous_endpoint;
-      last_range->make_max_endpoint(&previous_endpoint, prefix_length, keypart_map);
-      if (file->compare_key(&previous_endpoint) <= 0)
-        DBUG_RETURN(0);
+        Note: end_range only be pushed down for single column index. Multi
+        column index uses $Position to run, which has no end range.
+      */
+      bool hit_end_of_range = false;
+      if (head && is_sdb_engine_table(head) &&
+          HA_ERR_KEY_NOT_FOUND == result &&
+          index != MAX_KEY &&
+          1 == head->key_info[index].user_defined_key_parts &&
+          ranges.size() - (cur_range - ranges.begin()) > 0)
+      {
+        hit_end_of_range = true;
+      }
+
+      if (!hit_end_of_range)
+      {
+        if (result || last_range->max_keypart_map == 0)
+          DBUG_RETURN(result);
+
+        key_range previous_endpoint;
+        last_range->make_max_endpoint(&previous_endpoint, prefix_length, keypart_map);
+        if (file->compare_key(&previous_endpoint) <= 0)
+          DBUG_RETURN(0);
+      }
     }
 
     const size_t count= ranges.size() - (cur_range - ranges.begin());

@@ -360,6 +360,8 @@ extern Field *not_found_field;
 extern Field *view_ref_found;
 extern HASH table_def_cache;
 
+bool is_sdb_engine_table(TABLE *table);
+
 /**
   clean/setup table fields and map.
 
