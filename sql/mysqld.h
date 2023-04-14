@@ -145,6 +145,7 @@ extern bool opt_disable_networking, opt_skip_show_db;
 extern bool opt_skip_name_resolve;
 extern my_bool opt_help;
 extern my_bool opt_verbose;
+extern my_bool opt_full;
 extern bool opt_ignore_builtin_innodb;
 extern my_bool opt_character_set_client_handshake;
 extern MYSQL_PLUGIN_IMPORT bool volatile abort_loop;

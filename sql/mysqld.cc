@@ -246,6 +246,7 @@ static my_bool opt_autocommit; ///< for --autocommit command-line option
   Used with --help for detailed option
 */
 my_bool opt_help= 0, opt_verbose= 0;
+my_bool opt_full= 0;
 
 arg_cmp_func Arg_comparator::comparator_matrix[5][2] =
 {{&Arg_comparator::compare_string,     &Arg_comparator::compare_e_string},
@@ -5663,6 +5664,7 @@ struct my_option my_long_early_options[]=
    0, 0},
   {"verbose", 'v', "Used with --help option for detailed help.",
    &opt_verbose, &opt_verbose, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"full", 0, 0, &opt_full, &opt_full, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"version", 'V', "Output version information and exit.", 0, 0, 0, GET_NO_ARG,
    NO_ARG, 0, 0, 0, 0, 0, 0},
   {"initialize", 0, "Create the default database and exit."

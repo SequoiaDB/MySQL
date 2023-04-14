@@ -205,11 +205,8 @@ public:
     return false;
   }
 
-  bool register_option(std::vector<my_option> *array, int parse_flags)
-  {
-    return (option.id != -1) && (m_parse_flag & parse_flags) &&
-      (array->push_back(option), false);
-  }
+  bool register_option(std::vector<my_option> *array, int parse_flags);
+
   void do_deprecated_warning(THD *thd);
 
 private:

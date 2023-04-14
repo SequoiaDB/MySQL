@@ -164,7 +164,7 @@ sys_var::sys_var(sys_var_chain *chain, const char *name_arg,
   memset(&option, 0, sizeof(option));
   option.name= name_arg;
   option.id= getopt_id;
-  option.comment= (flags & HIDDEN) ? NULL : comment;
+  option.comment= comment;
   option.arg_type= getopt_arg_type;
   option.value= (uchar **)global_var_ptr();
   option.def_value= def_val;
@@ -344,6 +344,25 @@ sys_var *Sys_var_tracker::bind_system_variable(THD *thd) {
   }
 
   return m_var;
+}
+
+bool sys_var::register_option(std::vector<my_option> *array, int parse_flags)
+{
+  if (option.id != -1 && (m_parse_flag & parse_flags))
+  {
+    /*
+      We delay the initialization of option.comment, because opt_full is
+      unknown at the time of sys_var::sys_var().
+    */
+    if ((flags & HIDDEN) && !opt_full)
+    {
+      assert(PARSE_NORMAL == m_parse_flag);
+      option.comment = NULL;
+    }
+
+    array->push_back(option);
+  }
+  return false;
 }
 
 void sys_var::do_deprecated_warning(THD *thd)
@@ -626,7 +645,7 @@ bool enumerate_sys_vars(THD *thd, Show_var_array *show_var_array,
         continue;
 
       // don't show the hidden inner variables
-      if (sysvar->is_hidden())
+      if (sysvar->is_hidden() && !opt_full)
       {
         continue;
       }
