@@ -6114,6 +6114,7 @@ static bool handle_sender_observe_commit_change(sys_var *, THD *, enum_var_type)
 
 static Sys_var_uint Sys_server_ha_dml_max_retry_count(
        "server_ha_dml_max_retry_count",
+       "SEQUOIASQLMAINSTREAM-1501 "
        "The maximum number of retries required for current DML.",
        HIDDEN SESSION_VAR(server_ha_dml_max_retry_count),
        CMD_LINE(OPT_ARG), VALID_RANGE(0, 100),
@@ -6153,6 +6154,7 @@ static Sys_var_uint Sys_optimizer_limit_pushdown_threshold(
 
 static Sys_var_mybool Sys_optimizer_index_sort_prune(
        "optimizer_index_sort_prune",
+       "SEQUOIASQLMAINSTREAM-1054 "
        "Prune the unnecessary index sort to improve performance.",
        HIDDEN SESSION_VAR(optimizer_index_sort_prune), CMD_LINE(OPT_ARG),
        DEFAULT(FALSE));
@@ -6177,6 +6179,7 @@ static Sys_var_harows Sys_sql_select_result_limit(
 
 static Sys_var_mybool Sys_refresh_all_cached_tables_supported(
        "refresh_all_cached_tables_supported",
+       "SEQUOIASQLMAINSTREAM-1726 "
        "Whether refreshing all cached tables without specifying table name is "
        "supported or not.",
        HIDDEN SESSION_VAR(refresh_all_cached_tables_supported),
@@ -6184,6 +6187,7 @@ static Sys_var_mybool Sys_refresh_all_cached_tables_supported(
 
 static Sys_var_mybool Sys_skip_ref_null_if_null_reject(
        "skip_ref_null_if_null_reject",
+       "SEQUOIASQLMAINSTREAM-1752 "
        "Whether optimizer skips the plan that ref on a NULL value if has null "
        "rejecting predicate on the same keypart.",
        HIDDEN SESSION_VAR(skip_ref_null_if_null_reject),
@@ -6191,13 +6195,16 @@ static Sys_var_mybool Sys_skip_ref_null_if_null_reject(
 
 static Sys_var_mybool Sys_server_ha_retry_prepared_stmt(
        "server_ha_retry_prepared_stmt",
-       "Whether to re-execute DML statement using binary protocol",
+       "SEQUOIASQLMAINSTREAM-1634 "
+       "Whether to re-execute DML statement using binary protocol.",
        HIDDEN SESSION_VAR(server_ha_retry_prepared_stmt),
        CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 
 static Sys_var_mybool Sys_reject_nested_func_for_group_min_max(
        "reject_nested_func_for_group_min_max",
+       "SEQUOIASQLMAINSTREAM-1816 "
        "If there are nested function for min/max field in where clause, "
        "never choose group min max access plan.",
        HIDDEN SESSION_VAR(reject_nested_func_for_group_min_max),
        CMD_LINE(OPT_ARG), DEFAULT(TRUE));
+
