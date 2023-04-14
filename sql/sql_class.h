@@ -598,6 +598,7 @@ typedef struct system_variables
   my_bool refresh_all_cached_tables_supported;
   my_bool skip_ref_null_if_null_reject;
   my_bool server_ha_retry_prepared_stmt;
+  my_bool reject_nested_func_for_group_min_max;
 } SV;
 
 
