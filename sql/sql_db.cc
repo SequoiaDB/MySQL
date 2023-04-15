@@ -93,6 +93,8 @@ typedef struct my_dbopt_st
 extern "C" uchar* dboptions_get_key(my_dbopt_t *opt, size_t *length,
                                     my_bool not_used);
 
+extern bool sdb_is_recyclebin_full_error(int rc);
+
 uchar* dboptions_get_key(my_dbopt_t *opt, size_t *length,
                          my_bool not_used MY_ATTRIBUTE((unused)))
 {
@@ -899,6 +901,16 @@ bool mysql_rm_db(THD *thd,const LEX_CSTRING &db,bool if_exists, bool silent)
     */
 
     ha_drop_database(path);
+    int SDB_RECYCLEBIN_FULL_ERRNO= 0;
+    char saved_err_msg[MYSQL_ERRMSG_SIZE]= {0};
+    Diagnostics_area *da= (thd ? thd->get_stmt_da() : NULL);
+    if (thd->is_error() && da &&
+        sdb_is_recyclebin_full_error(da->mysql_errno())) {
+      SDB_RECYCLEBIN_FULL_ERRNO= da->mysql_errno();
+      strmake(saved_err_msg, da->message_text(), sizeof(saved_err_msg) - 1);
+      da->reset_diagnostics_area();
+    }
+
     tmp_disable_binlog(thd);
     query_cache.invalidate(db.str);
     (void) sp_drop_db_routines(thd, db.str); /* @todo Do not ignore errors */
@@ -913,6 +925,15 @@ bool mysql_rm_db(THD *thd,const LEX_CSTRING &db,bool if_exists, bool silent)
     */
     if (!found_other_files)
       error= rm_dir_w_symlink(path, true);
+
+    if (SDB_RECYCLEBIN_FULL_ERRNO) {
+      my_printf_error(SDB_RECYCLEBIN_FULL_ERRNO,
+                      "%s. Metadata of database '%s' is removed",
+                      MYF(0), saved_err_msg, db.str);
+      sql_print_error("%s. Metadata of database '%s' is removed",
+                      saved_err_msg, db.str);
+      error= true;
+    }
   }
   thd->pop_internal_handler();
 
