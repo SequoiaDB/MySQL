@@ -1522,6 +1522,16 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
   }
   case COM_STMT_EXECUTE:
   {
+    unsigned long params_len= com_data->com_stmt_execute.params_length;
+    unsigned char *params= (uchar*)thd_alloc(thd, params_len);
+    unsigned char *tmp_params= (uchar*)thd_alloc(thd, params_len);
+    if (NULL == params || NULL == tmp_params) {
+      my_error(ER_OUT_OF_RESOURCES, MYF(0)); /* purecov: inspected */
+      break; /* purecov: inspected */
+    }
+    memcpy(params, com_data->com_stmt_execute.params, params_len);
+    memcpy(tmp_params, com_data->com_stmt_execute.params, params_len);
+
     mysqld_stmt_execute(thd, com_data->com_stmt_execute.stmt_id,
                         com_data->com_stmt_execute.flags,
                         com_data->com_stmt_execute.params,
@@ -1545,7 +1555,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
     if (thd->variables.server_ha_retry_prepared_stmt &&
         cl_version_not_match_error &&
         stmt && stmt->lex && ha_is_open() && thd->is_error() &&
-        (!stmt->lex->sroutines_list.elements))
+        (!stmt->lex->sroutines_list.elements) && params && tmp_params)
     {
       // Always use LEX in prepared statement to check if
       // current stmt need to be retried
@@ -1569,10 +1579,10 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         need_retry= (mysql_errno && !thd->get_stmt_da()->is_set());
         if (need_retry)
         {
+          memcpy(tmp_params, params, params_len);
           mysqld_stmt_execute(thd, com_data->com_stmt_execute.stmt_id,
                               com_data->com_stmt_execute.flags,
-                              com_data->com_stmt_execute.params,
-                              com_data->com_stmt_execute.params_length);
+                              tmp_params, params_len);
         }
         // Reset retry flag
         thd->lex = stmt->lex;
