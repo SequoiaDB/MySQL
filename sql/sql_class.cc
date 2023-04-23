@@ -71,6 +71,8 @@
 using std::min;
 using std::max;
 
+extern bool ha_is_open();
+
 /*
   The following is used to initialise Table_ident with a internal
   table name
@@ -2694,13 +2696,70 @@ bool Query_result_send::send_result_set_metadata(List<Item> &list, uint flags)
   bool res;
 
   // do not send send_result_metadata once again for DML
-  if (thd->is_result_set_started)
+  if (thd->is_result_set_started && ha_is_open())
+  {
+    // Check if sent schema match
+    List_iterator_fast<Send_field> sent_field_it(thd->sent_fields);
+    List_iterator_fast<Item> it(list);
+    Item *item= NULL;
+    Send_field *sent_field= NULL;
+
+    do {
+      item= it++;
+      sent_field= sent_field_it++;
+      if (NULL == sent_field || NULL == item)
+        break;
+
+      // Build temporary Send_field according to Item
+      Send_field tmp_field;
+      item->make_field(&tmp_field);
+
+      if (0 != strcmp(sent_field->col_name, tmp_field.col_name) ||
+          sent_field->type != tmp_field.type ||
+          sent_field->charsetnr != tmp_field.charsetnr ||
+          sent_field->flags != tmp_field.flags ||
+          sent_field->decimals != tmp_field.decimals ||
+          sent_field->length != tmp_field.length)
+        break;
+    } while (item && sent_field);
+
+    if (item || sent_field)
+    {
+      my_printf_error(HA_ERR_INTERNAL_ERROR,
+        "Unable to re-execute current query; schema is changed", MYF(0));
+      return TRUE;
+    }
     return FALSE;
+  }
 
   if (!(res= thd->send_result_metadata(&list, flags)))
     is_result_set_started= 1;
 
   thd->is_result_set_started= is_result_set_started;
+  if (thd->is_result_set_started && ha_is_open())
+  {
+    // Save sent schema
+    List_iterator_fast<Item> it(list);
+    Item *item= NULL;
+    while ((item= it++))
+    {
+      Send_field *field= (Send_field*) thd_alloc(thd, sizeof(Send_field));
+      if (NULL == field)
+      {
+        my_error(ER_OUT_OF_RESOURCES, MYF(0)); /* purecov: inspected */
+        return TRUE; /* purecov: inspected */
+      }
+
+      item->make_field(field);
+      // Make a copy for 'col_name'
+      field->col_name= thd->strmake(field->col_name, strlen(field->col_name));
+      if (thd->sent_fields.push_back(field) || NULL == field->col_name)
+      {
+        my_error(ER_OUT_OF_RESOURCES, MYF(0)); /* purecov: inspected */
+        return TRUE; /* purecov: inspected */
+      }
+    }
+  }
   return res;
 }
 

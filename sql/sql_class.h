@@ -4835,6 +4835,7 @@ public:
      be ignored but the real result of join exec. */
   sdb_sql_push_down_exec_steps sdb_sql_exec_step;
   bool is_result_set_started;
+  List<Send_field> sent_fields;
   static int (*sdb_set_tran_iso_level_callback)(THD *);
   /* save the wrong objects while executing dropping command */
   List<char> wrong_objects;
