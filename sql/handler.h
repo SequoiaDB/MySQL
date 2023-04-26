@@ -2231,7 +2231,6 @@ protected:
 
 protected:
   KEY_PART_INFO *range_key_part;
-  bool eq_range;
   /* 
     TRUE <=> the engine guarantees that returned records are within the range
     being scanned.
@@ -2246,6 +2245,7 @@ public:
     index conditions.
   */
   key_range *end_range;
+  bool eq_range;
   /**
     Flag which tells if #end_range contains a virtual generated column.
     The content is invalid when #end_range is NULL.

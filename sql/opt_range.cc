@@ -11640,6 +11640,8 @@ int QUICK_SELECT_DESC::get_next()
       continue;
     }
 
+    file->eq_range = MY_TEST(last_range->flag & EQ_RANGE);
+
     if (eqrange_all_keyparts)
 
     {
