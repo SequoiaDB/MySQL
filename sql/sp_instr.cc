@@ -781,6 +781,13 @@ bool sp_lex_instr::validate_lex_and_execute_core(THD *thd,
       stmt_reprepare_observer= &reprepare_observer;
     }
 
+    bool need_invalidate_current_stmt= false;
+    if ((SQLCOM_CREATE_USER == m_lex->sql_command ||
+         SQLCOM_ALTER_USER == m_lex->sql_command ||
+         SQLCOM_GRANT == m_lex->sql_command) &&
+        m_lex->contains_plaintext_password)
+      need_invalidate_current_stmt= true;
+
     thd->push_reprepare_observer(stmt_reprepare_observer);
 
     bool rc= reset_lex_and_exec_core(thd, nextp, open_tables);
@@ -788,6 +795,12 @@ bool sp_lex_instr::validate_lex_and_execute_core(THD *thd,
     thd->pop_reprepare_observer();
 
     m_first_execution= false;
+
+    if (need_invalidate_current_stmt)
+    {
+      free_lex();
+      invalidate();
+    }
 
     if (!rc)
       return false;
