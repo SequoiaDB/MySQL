@@ -4820,6 +4820,7 @@ public:
      be ignored but the real result of join exec. */
   sdb_sql_push_down_exec_steps sdb_sql_exec_step;
   bool is_result_set_started;
+  List<Send_field> sent_fields;
 };
 
 /**

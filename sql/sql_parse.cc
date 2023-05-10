@@ -1291,6 +1291,7 @@ void retry_current_statement(THD *thd, Parser_state &parser_state,
                        0, C_STRING_WITH_LEN("ResetCheckedObjects"));
   }
   thd->is_result_set_started= FALSE;
+  thd->sent_fields.empty();
 #endif
 }
 
@@ -1596,6 +1597,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
                          0, C_STRING_WITH_LEN("ResetCheckedObjects"));
       thd->lex= saved_lex;
       thd->is_result_set_started= FALSE;
+      thd->sent_fields.empty();
     }
 #endif
     break;

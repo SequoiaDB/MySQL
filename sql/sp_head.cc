@@ -877,6 +877,7 @@ bool sp_head::execute(THD *thd, bool merge_da_on_success)
                          0, "ResetDMLRetryFlag", 17);
     }
     thd->is_result_set_started= FALSE;
+    thd->sent_fields.empty();
 #endif
   } while (!err_status && !thd->killed && !thd->is_fatal_error);
 
