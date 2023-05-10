@@ -2704,6 +2704,13 @@ bool Query_result_send::send_result_set_metadata(List<Item> &list, uint flags)
     Item *item= NULL;
     Send_field *sent_field= NULL;
 
+    if (list.elements != thd->sent_fields.elements)
+    {
+      my_printf_error(HA_ERR_INTERNAL_ERROR,
+        "Unable to re-execute current query; schema is changed", MYF(0));
+      return TRUE;
+    }
+
     do {
       item= it++;
       sent_field= sent_field_it++;
