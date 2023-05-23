@@ -667,7 +667,9 @@ Key_use* Optimize_table_order::find_best_ref(JOIN_TAB *tab,
       so far if:
 
        1) The access type for the best index and the current index is
-          FULLTEXT or REF, and the current index has a lower cost
+          FULLTEXT or REF, and
+          1.1) the current index has a lower cost
+          1.2) or has the same cost but use more keyparts
        2) The access type is the same for the best index and the
           current index, and the current index has a lower cost
           (ie, both indexes are UNIQUE)
@@ -678,7 +680,19 @@ Key_use* Optimize_table_order::find_best_ref(JOIN_TAB *tab,
     bool new_candidate= false;
 
     if (best_found_keytype >= NOT_UNIQUE && cur_keytype >= NOT_UNIQUE)
-      new_candidate= cur_ref_cost < best_ref_cost;      // 1
+    {
+      if (cur_ref_cost < best_ref_cost)
+      {
+        new_candidate= true;                            // 1.1
+      }
+      else if (cur_ref_cost == best_ref_cost &&
+               thd->variables.ref_prefer_more_keypart)
+      {
+        uint cur_keyparts= max_part_bit(start_key->bound_keyparts);
+        uint best_keyparts= max_part_bit(best_ref->bound_keyparts);
+        new_candidate= cur_keyparts > best_keyparts;    // 1.2
+      }
+    }
     else if (best_found_keytype == cur_keytype)
       new_candidate= cur_ref_cost < best_ref_cost;      // 2
     else if (best_found_keytype > cur_keytype)

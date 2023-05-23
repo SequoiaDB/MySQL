@@ -599,6 +599,7 @@ typedef struct system_variables
   my_bool skip_ref_null_if_null_reject;
   my_bool server_ha_retry_prepared_stmt;
   my_bool reject_nested_func_for_group_min_max;
+  my_bool ref_prefer_more_keypart;
   my_bool i_s_tables_stats_cache_first;
 } SV;
 
