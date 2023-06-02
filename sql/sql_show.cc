@@ -5135,12 +5135,19 @@ static int get_schema_tables_record(THD *thd, TABLE_LIST *tables,
 
     if(file)
     {
+      uint status = HA_STATUS_VARIABLE | HA_STATUS_TIME |
+                    HA_STATUS_VARIABLE_EXTRA | HA_STATUS_AUTO;
+      if (thd->variables.i_s_tables_stats_cache_first &&
+          is_sdb_engine_table(show_table))
+      {
+        status |= HA_STATUS_NO_LOCK;
+      }
       /* If info() fails, then there's nothing else to do */
-      if ((info_error= file->info(HA_STATUS_VARIABLE |
-                                  HA_STATUS_TIME |
-                                  HA_STATUS_VARIABLE_EXTRA |
-                                  HA_STATUS_AUTO)) != 0)
+      info_error = file->info(status);
+      if (info_error != 0)
+      {
         goto err;
+      }
 
       enum row_type row_type = file->get_row_type();
       switch (row_type) {
