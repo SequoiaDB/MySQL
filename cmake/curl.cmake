@@ -49,7 +49,7 @@ MACRO(MYSQL_CHECK_CURL)
     )
     LIST(REVERSE CMAKE_FIND_LIBRARY_SUFFIXES)
     IF(NOT CURL_LIBRARY)
-      MESSAGE(FATAL_ERROR "CURL library not found under '${WITH_CURL}'")
+      MESSAGE(STATUS "CURL library not found under '${WITH_CURL}'")
     ENDIF()
 
     FIND_PATH(CURL_INCLUDE_DIR
@@ -60,7 +60,7 @@ MACRO(MYSQL_CHECK_CURL)
       NO_SYSTEM_ENVIRONMENT_PATH
       )
     IF(NOT CURL_INCLUDE_DIR)
-      MESSAGE(FATAL_ERROR "CURL include files not found under '${WITH_CURL}'")
+      MESSAGE(STATUS "CURL include files not found under '${WITH_CURL}'")
     ENDIF()
 
     MESSAGE(STATUS "CURL_LIBRARY = ${CURL_LIBRARY}")
