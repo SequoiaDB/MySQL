@@ -1438,10 +1438,16 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
   }
 #endif /* !EMBEDDED_LIBRARY */
 
+  // Reset is_result_set_started and sent_fields in THD before query
   if (thd->is_result_set_started)
   {
     thd->is_result_set_started= false;
   }
+  if (thd->sent_fields.elements)
+  {
+    thd->sent_fields.empty();
+  }
+
   switch (command) {
   case COM_INIT_DB:
   {
@@ -2230,6 +2236,16 @@ done:
   assert(thd->derived_tables == NULL &&
          (thd->open_tables == NULL ||
           (thd->locked_tables_mode == LTM_LOCK_TABLES)));
+
+  // Reset is_result_set_started and sent_fields in THD
+  if (thd->is_result_set_started)
+  {
+    thd->is_result_set_started= false;
+  }
+  if (thd->sent_fields.elements)
+  {
+    thd->sent_fields.empty();
+  }
 
   /* Finalize server status flags after executing a command. */
   thd->update_server_status();
