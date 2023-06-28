@@ -343,7 +343,12 @@ skip_caching:
       qep_tab && qep_tab->condition() && table->pos_in_table_list &&
       (qep_tab->condition()->used_tables() & table->pos_in_table_list->map()) &&
       !table->file->pushed_cond)
-    table->file->cond_push(qep_tab->condition());
+  {
+    if (!table->file->cond_push(qep_tab->condition()))
+    {
+      table->file->pushed_cond= qep_tab->condition();
+    }
+  }
 
   DBUG_RETURN(false);
 
