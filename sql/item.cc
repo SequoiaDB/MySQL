@@ -359,7 +359,7 @@ my_decimal *Item::val_decimal_from_string(my_decimal *decimal_value)
 
   if (str2my_decimal(E_DEC_FATAL_ERROR & ~E_DEC_BAD_NUM,
                      res->ptr(), res->length(), res->charset(),
-                     decimal_value) & E_DEC_BAD_NUM)
+                     decimal_value))
   {
     ErrConvString err(res);
     push_warning_printf(current_thd, Sql_condition::SL_WARNING,
@@ -4132,6 +4132,11 @@ double Item_param::val_real()
     return result;
   }
   case STRING_VALUE:
+  {
+    char *end= (char*)str_value.ptr() + str_value.length();
+    return double_from_string_with_check(str_value.charset(),
+                                         str_value.ptr(), end);
+  }
   case LONG_DATA_VALUE:
   {
     int dummy_err;
@@ -4168,6 +4173,11 @@ longlong Item_param::val_int()
     return i;
   }
   case STRING_VALUE:
+  {
+    char *end= (char*)str_value.ptr() + str_value.length();
+    return longlong_from_string_with_check(str_value.charset(),
+                                           str_value.ptr(), end);
+  }
   case LONG_DATA_VALUE:
     {
       int dummy_err;
@@ -4197,6 +4207,7 @@ my_decimal *Item_param::val_decimal(my_decimal *dec)
     int2my_decimal(E_DEC_FATAL_ERROR, value.integer, unsigned_flag, dec);
     return dec;
   case STRING_VALUE:
+    return val_decimal_from_string(dec);
   case LONG_DATA_VALUE:
     string2my_decimal(E_DEC_FATAL_ERROR, &str_value, dec);
     return dec;
