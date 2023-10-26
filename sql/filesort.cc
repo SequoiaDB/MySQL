@@ -1433,7 +1433,7 @@ uint Sort_param::make_sortkey(uchar *to, const uchar *ref_pos)
       case DECIMAL_RESULT:
         {
           my_decimal dec_buf, *dec_val= item->val_decimal_result(&dec_buf);
-          if (maybe_null)
+          if (maybe_null || current_thd->is_error())
           {
             if (item->null_value)
             { 
