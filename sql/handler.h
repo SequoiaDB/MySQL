@@ -796,6 +796,7 @@ struct handlerton
      @retval true Error
    */
    bool (*flush_logs)(handlerton *hton, bool binlog_group_flush);
+   bool (*flush_table)(THD *thd, const char *db_name, const char *table_name);
    bool (*show_status)(handlerton *hton, THD *thd, stat_print_fn *print, enum ha_stat_type stat);
    /*
      The flag values are defined in sql_partition.h.
@@ -4110,6 +4111,7 @@ void ha_kill_connection(THD *thd);
   @retval true Error
 */
 bool ha_flush_logs(handlerton *db_type, bool binlog_group_flush= false);
+bool ha_flush_table(THD *thd, const char *db_name, const char *table_name);
 void ha_drop_database(char* path);
 int ha_create_table(THD *thd, const char *path,
                     const char *db, const char *table_name,

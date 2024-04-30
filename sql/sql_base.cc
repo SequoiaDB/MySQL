@@ -1207,6 +1207,8 @@ bool close_cached_tables(THD *thd, TABLE_LIST *tables,
     /* Free table shares which were not freed implicitly by loop above. */
     while (oldest_unused_share->next)
       (void) my_hash_delete(&table_def_cache, (uchar*) oldest_unused_share);
+    if (ha_flush_table(thd, NULL, NULL))
+      result = TRUE;
   }
   else
   {
@@ -1223,6 +1225,9 @@ bool close_cached_tables(THD *thd, TABLE_LIST *tables,
                          table->table_name, TRUE);
         found=1;
       }
+
+      if (ha_flush_table(thd, table->db, table->table_name))
+        result = TRUE;
     }
     if (!found)
       wait_for_refresh=0;			// Nothing to wait for
