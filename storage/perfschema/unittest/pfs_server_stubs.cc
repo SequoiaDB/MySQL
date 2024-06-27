@@ -39,6 +39,9 @@ uint lower_case_table_names= 0;
 CHARSET_INFO *files_charset_info= NULL;
 CHARSET_INFO *system_charset_info= NULL;
 
+bool THR_THD_initialized= false;
+thread_local_key_t THR_THD;
+
 void compute_digest_md5(const sql_digest_storage *, unsigned char *)
 {
 }

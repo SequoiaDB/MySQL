@@ -273,7 +273,7 @@ void table_events_transactions_common::make_row(PFS_events_transactions *transac
     timer_end= transaction->m_timer_end;
   }
 
-  m_normalizer->to_pico(transaction->m_timer_start, timer_end,
+  m_normalizer->normalize(transaction->m_timer_start, timer_end,
                         &m_row.m_timer_start, &m_row.m_timer_end, &m_row.m_timer_wait);
   m_row.m_name= klass->m_name;
   m_row.m_name_length= klass->m_name_length;

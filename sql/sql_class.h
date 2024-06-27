@@ -139,6 +139,12 @@ enum enum_binlog_format {
   BINLOG_FORMAT_UNSPEC=3  ///< thd_binlog_format() returns it when binlog is closed
 };
 
+enum enum_pfs_time_unit {
+    PFS_TIME_UNIT_PICOSEC,
+    PFS_TIME_UNIT_NANOSEC
+};
+
+
 /* Bits for different SQL modes modes (including ANSI mode) */
 #define MODE_REAL_AS_FLOAT              1
 #define MODE_PIPES_AS_CONCAT            2
@@ -585,6 +591,7 @@ typedef struct system_variables
   my_bool server_ha_retry_prepared_stmt;
   my_bool reject_nested_func_for_group_min_max;
   my_bool i_s_tables_stats_cache_first;
+  ulong perfschema_time_unit;
 } SV;
 
 

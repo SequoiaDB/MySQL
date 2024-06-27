@@ -602,7 +602,7 @@ void table_events_waits_common::make_row(PFS_events_waits *wait)
     timer_end= wait->m_timer_end;
   }
 
-  m_normalizer->to_pico(wait->m_timer_start, timer_end,
+  m_normalizer->normalize(wait->m_timer_start, timer_end,
                       & m_row.m_timer_start, & m_row.m_timer_end, & m_row.m_timer_wait);
 
   m_row.m_name= safe_class->m_name;

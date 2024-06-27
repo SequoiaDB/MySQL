@@ -211,7 +211,7 @@ void table_events_stages_common::make_row(PFS_events_stages *stage)
     timer_end= stage->m_timer_end;
   }
 
-  m_normalizer->to_pico(stage->m_timer_start, timer_end,
+  m_normalizer->normalize(stage->m_timer_start, timer_end,
                       & m_row.m_timer_start, & m_row.m_timer_end, & m_row.m_timer_wait);
 
   m_row.m_name= klass->m_name;

@@ -6125,3 +6125,11 @@ static Sys_var_mybool Sys_information_schema_tables_stats_cache_first(
       SESSION_VAR(i_s_tables_stats_cache_first), CMD_LINE(OPT_ARG),
       DEFAULT(FALSE));
 
+static const char *pfs_time_unit_names[]= {"PICOSEC", "NANOSEC", NullS};
+static Sys_var_enum Sys_perfschema_time_unit(
+       "perfschema_time_unit",
+       "The time unit of performance_schema table fields, such as TIMER_START"
+       ", TIMER_END and TIMER_WAIT. It only affects the field presentation, "
+       "not the timer implementation.",
+       HIDDEN SESSION_VAR(perfschema_time_unit), CMD_LINE(OPT_ARG),
+       pfs_time_unit_names, DEFAULT(PFS_TIME_UNIT_PICOSEC));
