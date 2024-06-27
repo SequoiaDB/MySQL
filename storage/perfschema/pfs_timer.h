@@ -33,6 +33,9 @@
 /** Conversion factor, from micro seconds to pico seconds. */
 #define MICROSEC_TO_PICOSEC 1000000
 
+/** Conversion factor, from micro seconds to nano seconds. */
+#define MICROSEC_TO_NANOSEC 1000
+
 /**
   A time normalizer.
   A time normalizer consist of a transformation that
@@ -53,6 +56,8 @@ struct time_normalizer
   /** Conversion factor from timer values to pico seconds. */
   ulonglong m_factor;
 
+  ulonglong normalize_wait(ulonglong wait);
+
   /**
     Convert a wait from timer units to pico seconds.
     @param wait a wait, expressed in timer units
@@ -64,6 +69,13 @@ struct time_normalizer
   }
 
   /**
+    Convert a wait from timer units to nano seconds.
+    @param wait a wait, expressed in timer units
+    @return the wait, expressed in nano seconds
+  */
+  ulonglong wait_to_nano(ulonglong wait);
+
+  /**
     Convert a time from timer units to pico seconds.
     @param t a time, expressed in timer units
     @return the time, expressed in pico seconds
@@ -72,6 +84,9 @@ struct time_normalizer
   {
     return (t == 0 ? 0 : (t - m_v0) * m_factor);
   }
+
+  void normalize(ulonglong start, ulonglong end,
+                 ulonglong *pico_start, ulonglong *pico_end, ulonglong *pico_wait);
 
   /**
     Convert start / end times from timer units to pico seconds.
@@ -83,6 +98,17 @@ struct time_normalizer
   */
   void to_pico(ulonglong start, ulonglong end,
                ulonglong *pico_start, ulonglong *pico_end, ulonglong *pico_wait);
+
+  /**
+    Convert start / end times from timer units to nano seconds.
+    @param start start time, expressed in timer units
+    @param end end time, expressed in timer units
+    @param[out] nano_start start time, expressed in nano seconds
+    @param[out] nano_end end time, expressed in nano seconds
+    @param[out] nano_wait wait time, expressed in nano seconds
+  */
+  void to_nano(ulonglong start, ulonglong end,
+               ulonglong *nano_start, ulonglong *nano_end, ulonglong *nano_wait);
 };
 
 /**

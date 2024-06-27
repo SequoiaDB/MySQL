@@ -145,6 +145,11 @@ enum enum_sql_select_result_limit_exceed_handling{
   SQL_RESULT_LIMIT_EXCEED_HANDLING_ERROR= 2
 };
 
+enum enum_pfs_time_unit {
+    PFS_TIME_UNIT_PICOSEC,
+    PFS_TIME_UNIT_NANOSEC
+};
+
 
 /* Bits for different SQL modes modes (including ANSI mode) */
 #define MODE_REAL_AS_FLOAT              1
@@ -601,6 +606,7 @@ typedef struct system_variables
   my_bool reject_nested_func_for_group_min_max;
   my_bool ref_prefer_more_keypart;
   my_bool i_s_tables_stats_cache_first;
+  ulong perfschema_time_unit;
 } SV;
 
 

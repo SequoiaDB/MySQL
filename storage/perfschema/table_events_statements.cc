@@ -360,9 +360,11 @@ void table_events_statements_common::make_row_part_1(PFS_events_statements *stat
     timer_end= statement->m_timer_end;
   }
 
-  m_normalizer->to_pico(statement->m_timer_start, timer_end,
-                      & m_row.m_timer_start, & m_row.m_timer_end, & m_row.m_timer_wait);
-  m_row.m_lock_time= statement->m_lock_time * MICROSEC_TO_PICOSEC;
+  m_normalizer->normalize(statement->m_timer_start, timer_end,
+                        & m_row.m_timer_start, & m_row.m_timer_end, & m_row.m_timer_wait);
+  ulonglong factor = (current_thd->variables.perfschema_time_unit == PFS_TIME_UNIT_NANOSEC) ?
+                     MICROSEC_TO_NANOSEC : MICROSEC_TO_PICOSEC;
+  m_row.m_lock_time= statement->m_lock_time * factor;
 
   m_row.m_name= klass->m_name;
   m_row.m_name_length= klass->m_name_length;

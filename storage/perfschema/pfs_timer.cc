@@ -26,6 +26,7 @@
 */
 
 #include "my_global.h"
+#include "sql_class.h"
 #include "pfs_timer.h"
 #include "my_rdtsc.h"
 
@@ -321,6 +322,36 @@ time_normalizer* time_normalizer::get(enum_timer_name timer_name)
   return & to_pico_data[index];
 }
 
+ulonglong time_normalizer::normalize_wait(ulonglong wait)
+{
+  if (current_thd->variables.perfschema_time_unit == PFS_TIME_UNIT_NANOSEC)
+  {
+    return wait_to_nano(wait);
+  }
+  else
+  {
+    return wait_to_pico(wait);
+  }
+}
+
+ulonglong time_normalizer::wait_to_nano(ulonglong wait)
+{
+  return (wait / nanosec_to_pico) * m_factor;
+}
+
+void time_normalizer::normalize(ulonglong start, ulonglong end,
+                                ulonglong *time_start, ulonglong *time_end, ulonglong *time_wait)
+{
+  if (current_thd->variables.perfschema_time_unit == PFS_TIME_UNIT_NANOSEC)
+  {
+    to_nano(start, end, time_start, time_end, time_wait);
+  }
+  else
+  {
+    to_pico(start, end, time_start, time_end, time_wait);
+  }
+}
+
 void time_normalizer::to_pico(ulonglong start, ulonglong end,
                               ulonglong *pico_start, ulonglong *pico_end, ulonglong *pico_wait)
 {
@@ -342,6 +373,49 @@ void time_normalizer::to_pico(ulonglong start, ulonglong end,
     {
       *pico_end= (end - m_v0) * m_factor;
       *pico_wait= (end - start) * m_factor;
+    }
+  }
+}
+
+void time_normalizer::to_nano(ulonglong start, ulonglong end,
+                              ulonglong *nano_start, ulonglong *nano_end, ulonglong *nano_wait)
+{
+  if (start == 0)
+  {
+    *nano_start= 0;
+    *nano_end= 0;
+    *nano_wait= 0;
+  }
+  else
+  {
+    if (m_factor >= nanosec_to_pico)
+    {
+      ulonglong factor = m_factor / nanosec_to_pico;
+      *nano_start= (start - m_v0) * factor;
+      if (end == 0)
+      {
+        *nano_end= 0;
+        *nano_wait= 0;
+      }
+      else
+      {
+        *nano_end= (end - m_v0) * factor;
+        *nano_wait= (end - start) * factor;
+      }
+    }
+    else
+    {
+      *nano_start= ( (start - m_v0) / nanosec_to_pico ) * m_factor;
+      if (end == 0)
+      {
+        *nano_end= 0;
+        *nano_wait= 0;
+      }
+      else
+      {
+        *nano_end= ( (end - m_v0) / nanosec_to_pico ) * m_factor;
+        *nano_wait= ( (end - start) / nanosec_to_pico ) * m_factor;
+      }
     }
   }
 }

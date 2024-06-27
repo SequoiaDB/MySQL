@@ -243,10 +243,10 @@ struct PFS_stat_row
 
     if ((m_count != 0) && stat->has_timed_stats())
     {
-      m_sum= normalizer->wait_to_pico(stat->m_sum);
-      m_min= normalizer->wait_to_pico(stat->m_min);
-      m_max= normalizer->wait_to_pico(stat->m_max);
-      m_avg= normalizer->wait_to_pico(stat->m_sum / m_count);
+      m_sum= normalizer->normalize_wait(stat->m_sum);
+      m_min= normalizer->normalize_wait(stat->m_min);
+      m_max= normalizer->normalize_wait(stat->m_max);
+      m_avg= normalizer->normalize_wait(stat->m_sum / m_count);
     }
     else
     {
