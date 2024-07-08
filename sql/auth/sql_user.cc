@@ -682,6 +682,7 @@ bool change_password(THD *thd, const char *host, const char *user,
   bool result= true, rollback_whole_statement= false;
   sql_mode_t old_sql_mode= thd->variables.sql_mode;
   int ret;
+  String query;
 
   DBUG_ENTER("change_password");
   DBUG_PRINT("enter",("host: '%s'  user: '%s'  new_password: '%s'",
@@ -860,6 +861,8 @@ bool change_password(THD *thd, const char *host, const char *user,
   }
   result= write_bin_log(thd, true, buff, query_length,
                         table->file->has_transactions());
+  query.set(buff, query_length, &my_charset_bin);
+  thd->swap_rewritten_query(query);
 end:
   result|= acl_end_trans_and_close_tables(thd,
                                           thd->transaction_rollback_request ||

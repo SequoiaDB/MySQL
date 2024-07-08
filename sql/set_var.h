@@ -353,6 +353,7 @@ public:
   int check(THD *thd);
   int update(THD *thd);
   void print(THD *thd, String *str);	/* To self-print */
+  st_lex_user* get_user() { return user; }
 };
 
 
