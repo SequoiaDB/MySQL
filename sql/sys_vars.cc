@@ -6226,6 +6226,7 @@ static Sys_var_mybool Sys_information_schema_tables_stats_cache_first(
 static const char *pfs_time_unit_names[]= {"PICOSEC", "NANOSEC", NullS};
 static Sys_var_enum Sys_perfschema_time_unit(
        "perfschema_time_unit",
+       "SEQUOIASQLMAINSTREAM-2001 "
        "The time unit of performance_schema table fields, such as TIMER_START"
        ", TIMER_END and TIMER_WAIT. It only affects the field presentation, "
        "not the timer implementation.",
