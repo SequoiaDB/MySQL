@@ -541,6 +541,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_SLAVE_START]=        CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_SLAVE_STOP]=         CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_ALTER_TABLESPACE]|=  CF_AUTO_COMMIT_TRANS;
+  sql_command_flags[SQLCOM_REFRESH]|=           CF_AUTO_COMMIT_TRANS;
 
   /*
     The following statements can deal with temporary tables,
@@ -2850,9 +2851,9 @@ static bool refresh_tables_share_stats(THD *thd, TABLE_LIST *all_tables)
     */
     refresh_table->file->extra(HA_EXTRA_REFRESH_TO_REPLACE_SHARE_STATS);
     /* remove the already refreshed table metadata lock requests. */
-    if (table_list->mdl_request.ticket)
+    if (refresh_table->mdl_ticket)
     {
-      table_list->mdl_request.ticket->downgrade_lock(MDL_SHARED_READ);
+      refresh_table->mdl_ticket->downgrade_lock(MDL_SHARED_READ);
     }
   }
   return error;
