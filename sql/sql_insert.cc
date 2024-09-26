@@ -1606,7 +1606,7 @@ int write_record(THD *thd, TABLE *table, COPY_INFO *info, COPY_INFO *update)
 	goto err;
       if (table->file->ha_table_flags() & HA_DUPLICATE_POS)
       {
-        if (table->file->ha_rnd_pos(table->record[1],table->file->dup_ref))
+        if ((error=table->file->ha_rnd_pos(table->record[1],table->file->dup_ref)))
           goto err;
       }
       /*
