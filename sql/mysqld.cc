@@ -378,6 +378,7 @@ my_bool opt_show_slave_auth_info;
 my_bool opt_log_slave_updates= 0;
 char *opt_slave_skip_errors;
 my_bool opt_slave_allow_batching= 0;
+my_bool opt_preload_sdb_stats= FALSE;
 
 /**
   compatibility option:
@@ -5128,6 +5129,20 @@ int mysqld_main(int argc, char **argv)
               "WHERE CREATE_OPTIONS LIKE '%partitioned%';");
       sql_print_information("End of list of non-natively partitioned tables");
     }
+    if (opt_preload_sdb_stats)
+    {
+      sql_print_information(
+              "Executing 'SELECT * from information_schema.tables AS t LEFT JOIN information_schema.statistics AS s "
+              "on t.TABLE_SCHEMA=s.TABLE_SCHEMA and t.TABLE_NAME=s.TABLE_NAME "
+              "where t.engine=\"SequoiaDB\";'"
+              "to load index statistics for SequoiaDB engine.");
+      sql_print_information("Beginning loading index statistics");
+      (void) bootstrap_single_query(
+              "SELECT * from information_schema.tables AS t LEFT JOIN information_schema.statistics AS s "
+              "on t.TABLE_SCHEMA=s.TABLE_SCHEMA and t.TABLE_NAME=s.TABLE_NAME "
+              "where t.engine=\"SequoiaDB\";");
+      sql_print_information("End of loading index statistics");
+    }
   }
 
   /*
@@ -5711,6 +5726,10 @@ struct my_option my_long_early_options[]=
    "Port number to use for connection.",
    &opt_keyring_migration_port, &opt_keyring_migration_port,
    0, GET_ULONG, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"preload-sdb-stats", 0,
+   "Preload SequoiaDB engine statistics when setup mysqld server",
+   &opt_preload_sdb_stats, &opt_preload_sdb_stats, 0, GET_BOOL,
+   NO_ARG, FALSE, 0, 0, 0, 0, 0},
   { 0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0 }
 };
 
