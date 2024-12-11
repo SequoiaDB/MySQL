@@ -1,4 +1,17 @@
-This is the archive project for original MySQL source code.
-All supported versions are maintained as seperated branches.
-Please do not push to master branch.
-If any new supported version is added, please push to a new seperated branch and ask the maintainer to add it to the protected list. 
+Copyright (c) 2000, 2023, Oracle and/or its affiliates.
+
+This is a release of MySQL, an SQL database server.
+
+License information can be found in the LICENSE file.
+
+This distribution may include materials developed by third parties.
+For license and attribution notices for these materials,
+please refer to the LICENSE file.
+
+For further information on MySQL or additional documentation, visit
+  http://dev.mysql.com/doc/
+
+For additional downloads and the source of MySQL, visit
+  http://dev.mysql.com/downloads/
+
+MySQL is brought to you by the MySQL team at Oracle.
