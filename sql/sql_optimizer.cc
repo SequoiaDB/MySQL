@@ -1961,6 +1961,7 @@ test_if_skip_sort_order(JOIN_TAB *tab, ORDER *order, ha_rows select_limit,
   bool set_up_ref_access_to_key= false;
   bool can_skip_sorting= false;                  // used as return value
   int changed_key= -1;
+  int saved_join_type= tab->type();
   DBUG_ENTER("test_if_skip_sort_order");
 
   /* Check that we are always called with first non-const table */
@@ -2539,6 +2540,10 @@ fix_ICP:
                                 ref_key >= 0 ?
                                 table->key_info[ref_key].name : "unknown");
     trace_change_index.add("plan_changed", false);
+  }
+  if (!no_changes && JT_REF == saved_join_type && JT_REF != tab->type())
+  {
+    table->file->extra(HA_EXTRA_REF_PLAN_CHANGED);
   }
   DBUG_RETURN(can_skip_sorting);
 }
