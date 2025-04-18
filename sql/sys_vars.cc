@@ -6232,3 +6232,11 @@ static Sys_var_enum Sys_perfschema_time_unit(
        "not the timer implementation.",
        HIDDEN SESSION_VAR(perfschema_time_unit), CMD_LINE(OPT_ARG),
        pfs_time_unit_names, DEFAULT(PFS_TIME_UNIT_PICOSEC));
+
+static Sys_var_mybool Sys_index_sort_cost_optimization(
+       "index_sort_cost_optimization",
+       "SEQUOIASQLMAINSTREAM-2032 "
+       "Consider the sharding partition count to optimize the index sort cost "
+       "for SequoiaDB engine.",
+       HIDDEN SESSION_VAR(index_sort_cost_optimization), CMD_LINE(OPT_ARG),
+       DEFAULT(TRUE));

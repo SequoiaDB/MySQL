@@ -3878,6 +3878,7 @@ public:
     ha_share= arg_ha_share;
     return false;
   }
+  virtual uint get_shard_count() { return 1; }
   int get_lock_type() const { return m_lock_type; }
 
   /**

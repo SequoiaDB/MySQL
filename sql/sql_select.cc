@@ -4242,6 +4242,12 @@ test_if_cheaper_ordering(const JOIN_TAB *tab, ORDER *order, TABLE *table,
           select_limit= (ha_rows) (select_limit *
                                    (double) table_records /
                                     refkey_rows_estimate);
+        if (join && join->thd && table &&
+            join->thd->variables.index_sort_cost_optimization &&
+            is_sdb_engine_table(table))
+        {
+          select_limit *= table->file->get_shard_count();
+        }
         rec_per_key=
           keyinfo->records_per_key(keyinfo->user_defined_key_parts - 1);
         set_if_bigger(rec_per_key, 1.0f);

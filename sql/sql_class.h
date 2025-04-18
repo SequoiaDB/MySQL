@@ -607,6 +607,7 @@ typedef struct system_variables
   my_bool ref_prefer_more_keypart;
   my_bool i_s_tables_stats_cache_first;
   ulong perfschema_time_unit;
+  my_bool index_sort_cost_optimization;
 } SV;
 
 
